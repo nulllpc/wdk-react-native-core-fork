@@ -67,6 +67,8 @@ export interface UseWalletManagerResult {
 
   /** Clear the wallet cache. */
   clearCache: () => void
+  
+  hasWallet: (walletId: string) => Promise<boolean>
 
   /**
    * Create a temporary wallet for previewing addresses
@@ -699,6 +701,7 @@ export function useWalletManager(): UseWalletManagerResult {
       createWallet,
       createTemporaryWallet,
       clearTemporaryWallet,
+      hasWallet: checkWallet,
       restoreWallet,
       deleteWallet,
       generateMnemonic,
