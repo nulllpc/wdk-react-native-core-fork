@@ -314,16 +314,92 @@ export function useBalance(
   })
 }
 
+/**
+ * Fetch balances for multiple assets, batching non-native token requests per network.
+ * 
+ * Native assets are fetched individually via `getBalance`.
+ * Non-native tokens are grouped by network and fetched via a single `getTokenBalances`
+ * call per network, reducing N RPC requests to 1.
+ */
 async function fetchBalancesForAssets(
   accountIndex: number,
   walletId: string,
   assetConfigs: IAsset[]
 ): Promise<BalanceFetchResult[]> {
-  return Promise.all(
-    assetConfigs.map(async (asset) => 
-      fetchBalance(asset.getNetwork(), accountIndex, asset, walletId)
-    )
+  const targetWalletId = resolveWalletId(walletId)
+
+  const nativeAssets: IAsset[] = []
+  const tokensByNetwork = new Map<string, IAsset[]>()
+
+  for (const asset of assetConfigs) {
+    if (asset.isNative()) {
+      nativeAssets.push(asset)
+    } else {
+      const network = asset.getNetwork()
+      const existing = tokensByNetwork.get(network) ?? []
+      existing.push(asset)
+      tokensByNetwork.set(network, existing)
+    }
+  }
+
+  const nativePromises = nativeAssets.map((asset) =>
+    fetchBalance(asset.getNetwork(), accountIndex, asset, walletId)
   )
+
+  const batchPromises = Array.from(tokensByNetwork.entries()).map(
+    async ([network, tokens]): Promise<BalanceFetchResult[]> => {
+      const tokenAddresses = tokens.map((t) => {
+        const addr = t.getContractAddress()
+        if (!addr) throw new Error(`Token address cannot be null for asset ${t.getId()}`)
+        return addr
+      })
+
+      try {
+        const balancesMap = await AccountService.callAccountMethod<'getTokenBalances'>(
+          network,
+          accountIndex,
+          'getTokenBalances',
+          tokenAddresses,
+        )
+
+        return tokens.map((token) => {
+          const addr = token.getContractAddress()!
+          const rawBalance = balancesMap[addr] ?? '0'
+          const balance = convertBalanceToString(rawBalance)
+
+          BalanceService.updateBalance(accountIndex, network, token.getId(), balance, targetWalletId)
+          BalanceService.updateLastBalanceUpdate(network, accountIndex, targetWalletId)
+
+          return {
+            success: true,
+            network,
+            accountIndex,
+            assetId: token.getId(),
+            balance,
+          }
+        })
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logError(`Failed to fetch batched token balances for ${network}:`, error)
+
+        return tokens.map((token) => ({
+          success: false,
+          network,
+          accountIndex,
+          assetId: token.getId(),
+          balance: null,
+          error: errorMessage,
+        }))
+      }
+    }
+  )
+
+  const [nativeResults, ...batchResults] = await Promise.all([
+    Promise.all(nativePromises),
+    ...batchPromises,
+  ])
+
+  return [...nativeResults, ...batchResults.flat()]
 }
 
 /**

@@ -206,16 +206,21 @@ describe('AccountService', () => {
         'getAddress',
         'getBalance',
         'getTokenBalance',
+        'getTokenBalances',
         'signMessage',
         'signTransaction',
         'sendTransaction',
       ]
 
       for (const method of methods) {
-        // getBalance and getTokenBalance return strings, others can return objects
-        const mockResult = (method === 'getBalance' || method === 'getTokenBalance')
-          ? '1000000000000000000'
-          : { success: true }
+        let mockResult: unknown
+        if (method === 'getBalance' || method === 'getTokenBalance') {
+          mockResult = '1000000000000000000'
+        } else if (method === 'getTokenBalances') {
+          mockResult = { '0xTokenA': '1000', '0xTokenB': '2000' }
+        } else {
+          mockResult = { success: true }
+        }
         mockHRPC.callMethod.mockResolvedValue({
           result: JSON.stringify(mockResult),
         })
@@ -224,6 +229,42 @@ describe('AccountService', () => {
           AccountService.callAccountMethod('ethereum', 0, method, null)
         ).resolves.toBeDefined()
       }
+    })
+
+    it('should validate getTokenBalances response format', async () => {
+      const mockResult = { '0xTokenA': '1000000', '0xTokenB': '2000000' }
+      mockHRPC.callMethod.mockResolvedValue({
+        result: JSON.stringify(mockResult),
+      })
+
+      const result = await AccountService.callAccountMethod(
+        'ethereum',
+        0,
+        'getTokenBalances',
+        ['0xTokenA', '0xTokenB'],
+      )
+
+      expect(result).toEqual(mockResult)
+    })
+
+    it('should reject invalid getTokenBalances response format - not an object', async () => {
+      mockHRPC.callMethod.mockResolvedValue({
+        result: JSON.stringify('not-an-object'),
+      })
+
+      await expect(
+        AccountService.callAccountMethod('ethereum', 0, 'getTokenBalances', ['0xTokenA']),
+      ).rejects.toThrow('Invalid batched balance format')
+    })
+
+    it('should reject invalid getTokenBalances response format - invalid balance value', async () => {
+      mockHRPC.callMethod.mockResolvedValue({
+        result: JSON.stringify({ '0xTokenA': 'not-a-number' }),
+      })
+
+      await expect(
+        AccountService.callAccountMethod('ethereum', 0, 'getTokenBalances', ['0xTokenA']),
+      ).rejects.toThrow('Invalid balance format for token 0xTokenA')
     })
 
     it('should use safeStringify for args', async () => {

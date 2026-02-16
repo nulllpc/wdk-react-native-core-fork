@@ -47,6 +47,13 @@
     "balance"
   ],
   "author": "Tetherto",
+  "contributors": [
+    {
+      "name": "Alexander Szolowicz",
+      "email": "as@base58.io",
+      "url": "https://base58.io/"
+    }
+  ],
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public",
