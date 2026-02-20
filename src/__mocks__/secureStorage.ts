@@ -1,3 +1,5 @@
+import { DEFAULT_WALLET_IDENTIFIER } from '../utils/constants';
+
 /**
  * Mock SecureStorage for testing
  * 
@@ -12,7 +14,7 @@ const storage: Record<string, {
 }> = {}
 
 const getStorageKey = (identifier?: string): string => {
-  return identifier || 'default'
+  return identifier || DEFAULT_WALLET_IDENTIFIER
 }
 
 export const mockSecureStorage = {

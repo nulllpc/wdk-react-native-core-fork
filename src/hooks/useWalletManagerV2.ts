@@ -12,6 +12,7 @@ import { WdkConfigs } from '../types'
 import { log, logError } from '../utils/logger'
 import { withOperationMutex } from '../utils/operationMutex'
 import { useShallow } from 'zustand/shallow'
+import { DEFAULT_WALLET_IDENTIFIER } from '../utils/constants'
 
 // export interface AccountDisplayInfo {
 //   addresses: Record<string, string>
@@ -248,26 +249,19 @@ export function useWalletManager(): UseWalletManagerResult {
     async (knownIdentifiers?: string[]) => {
       try {
         const identifiersToCheck = knownIdentifiers || []
-        const { activeWalletId: currentActiveId } = walletStore.getState()
 
         if (identifiersToCheck.length === 0) {
-          const defaultExists = await checkWallet('default')
-          return walletStore.setState({
-            walletList: [
-              {
-                identifier: 'default',
-                exists: defaultExists,
-                isActive: currentActiveId === 'default',
-              },
-            ],
-          })
+          const defaultExists = await checkWallet(DEFAULT_WALLET_IDENTIFIER)
+          const walletList = defaultExists
+            ? [{ identifier: DEFAULT_WALLET_IDENTIFIER, exists: true }]
+            : []
+          return walletStore.setState({ walletList })
         }
 
         const walletChecks = await Promise.all(
           identifiersToCheck.map(async (id) => ({
             identifier: id,
             exists: await checkWallet(id),
-            isActive: currentActiveId === id,
           })),
         )
         return walletStore.setState({ walletList: walletChecks })
@@ -637,7 +631,6 @@ export function useWalletManager(): UseWalletManagerResult {
             state.walletList.push({
               identifier: walletId,
               exists: true,
-              isActive: true,
             })
             // Set as active wallet so WdkAppProvider can auto-initialize on restart
             state.activeWalletId = walletId
