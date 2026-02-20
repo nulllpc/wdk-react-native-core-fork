@@ -3,8 +3,8 @@ import { AccountService } from '../services/accountService'
 import { getWalletStore } from '../store/walletStore'
 import type { IAsset } from '../types'
 import { BalanceFetchResult } from '../types'
-import { useShallow } from 'zustand/react/shallow'
 import { convertBalanceToString } from '../utils/balanceUtils'
+import { useAddressLoader } from './useAddressLoader'
 
 export type UseAccountParams = {
   accountIndex: number
@@ -23,15 +23,21 @@ export interface TransactionResult {
 }
 
 export interface UseAccountReturn<T extends object> {
-  /** The derived public address for this account. */
-  address: string
+  /** The derived public address for this account. Null if not loaded. */
+  address: string | null
 
-  /** The identifier object this hook instance is bound to. */
+  /** True if the account address is currently being derived. */
+  isLoading: boolean
+
+  /** An error object if address derivation failed. */
+  error: Error | null
+
+  /** The identifier object for this account. Null if no active wallet. */
   account: {
     accountIndex: number
     network: string
     walletId: string
-  }
+  } | null
 
   /**
    * Fetches the balance for the given assets directly from the network.
@@ -58,45 +64,45 @@ export interface UseAccountReturn<T extends object> {
    * Accesses chain-specific or other modular features not included in the core API.
    * Returns a typed, proxied interface for the specified namespace.
    * @example
-   * const btcAccount = useAccount<WdkWalletBtc>({ network: 'btc', ... });
-   * const btcApi = btcAccount.extension();
-   * const utxos = await btcApi.getUtxos();
+   * const btcAccount = useAccount<WalletAccountBtc>();
+   * const btcExtension = btcAccount.extension();
+   * const utxos = await btcExtension.getTransfers();
    */
   extension: () => T
 }
 
 export function useAccount<T extends object = {}>(
   accountParams: UseAccountParams,
-): UseAccountReturn<T> | null {
-  const walletStore = getWalletStore()
+): UseAccountReturn<T> {
+  const { address, isLoading, error: addressLoaderError } = useAddressLoader(accountParams)
 
-  const activeWalletId = walletStore((state) => state.activeWalletId)
+  const activeWalletId = getWalletStore()((state) => state.activeWalletId)
   
-  if (!activeWalletId) {
-    return null
-  }
-
-  const { address } = walletStore(
-    useShallow((state) => {
-      const address = state.addresses[activeWalletId]?.[accountParams.network]?.[accountParams.accountIndex]
-
-      return {
-        address,
-      }
-    }),
-  )
+  const activeWalletError = useMemo(() => {
+    if (!activeWalletId) {
+      return new Error('No active wallet')
+    } else {
+      return null
+    }
+  }, [activeWalletId])
 
   const account = useMemo(
-    () => ({
-      accountIndex: accountParams.accountIndex,
-      network: accountParams.network,
-      walletId: activeWalletId,
-    }),
-    [accountParams.accountIndex, accountParams.network, activeWalletId],
+    () =>
+      activeWalletId && address
+        ? {
+            accountIndex: accountParams.accountIndex,
+            network: accountParams.network,
+            walletId: activeWalletId,
+          }
+        : null,
+    [accountParams.accountIndex, accountParams.network, activeWalletId, address],
   )
 
   const getBalance = useCallback(
     async (tokens: IAsset[]): Promise<BalanceFetchResult[]> => {
+      if (!account) {
+        throw new Error('Cannot get balance: no active account.')
+      }
 
       if (!tokens || tokens.length === 0) {
         return []
@@ -106,25 +112,25 @@ export function useAccount<T extends object = {}>(
         tokens.map(async (asset) => {
           try {
             let balanceResult: string
-            
+
             if (asset.isNative()) {
-              balanceResult = await AccountService.callAccountMethod<'getBalance'>(
-                accountParams.network,
-                accountParams.accountIndex,
+              balanceResult = await AccountService.callAccountMethod<
                 'getBalance'
-              )
+              >(account.network, account.accountIndex, 'getBalance')
             } else {
               const tokenAddress = asset.getContractAddress()
-              
+
               if (!tokenAddress) {
                 throw new Error('Token address cannot be null')
               }
-              
-              balanceResult = await AccountService.callAccountMethod<'getTokenBalance'>(
-                accountParams.network,
-                accountParams.accountIndex,
+
+              balanceResult = await AccountService.callAccountMethod<
+                'getTokenBalance'
+              >(
+                account.network,
+                account.accountIndex,
                 'getTokenBalance',
-                tokenAddress
+                tokenAddress,
               )
             }
 
@@ -132,19 +138,19 @@ export function useAccount<T extends object = {}>(
 
             return {
               success: true,
-              network: accountParams.network,
-              accountIndex: accountParams.accountIndex,
+              network: account.network,
+              accountIndex: account.accountIndex,
               assetId: asset.getId(),
               balance,
             }
-          } catch (error) {
+          } catch (err) {
             return {
               success: false,
-              network: accountParams.network,
-              accountIndex: accountParams.accountIndex,
+              network: account.network,
+              accountIndex: account.accountIndex,
               assetId: asset.getId(),
               balance: null,
-              error: error instanceof Error ? error.message : String(error),
+              error: err instanceof Error ? err.message : String(err),
             }
           }
         }),
@@ -152,64 +158,75 @@ export function useAccount<T extends object = {}>(
 
       return results
     },
-    [accountParams.network, accountParams.accountIndex],
+    [account],
   )
 
   const send = useCallback(
     async (params: TransactionParams): Promise<TransactionResult> => {
-      const { to, asset, amount } = params
+      if (!account) {
+        throw new Error('Cannot send transaction: no active account.')
+      }
       
+      const { to, asset, amount } = params
+
       if (asset.isNative()) {
         return await AccountService.callAccountMethod<'sendTransaction'>(
-          accountParams.network,
-          accountParams.accountIndex,
+          account.network,
+          account.accountIndex,
           'sendTransaction',
           {
             to,
-            value: amount
+            value: amount,
           },
         )
       } else {
         const tokenAddress = asset.getContractAddress()
-        
+
         if (!tokenAddress) {
           throw new Error('Token address cannot be null')
         }
-        
+
         return await AccountService.callAccountMethod<'transfer'>(
-          accountParams.network,
-          accountParams.accountIndex,
+          account.network,
+          account.accountIndex,
           'transfer',
           {
             recipient: to,
             amount,
-            token: tokenAddress
+            token: tokenAddress,
           },
         )
       }
     },
-    [accountParams.network, accountParams.accountIndex],
+    [account],
   )
 
   const sign = useCallback(
     async (message: string): Promise<string> => {
+      if (!account) {
+        throw new Error('Cannot sign message: no active account.')
+      }
       const signature = await AccountService.callAccountMethod<'sign'>(
-        accountParams.network,
-        accountParams.accountIndex,
+        account.network,
+        account.accountIndex,
         'sign',
         message,
       )
 
       return signature
     },
-    [accountParams.network, accountParams.accountIndex],
+    [account],
   )
 
   const verify = useCallback(
     async (message: string, signature: string): Promise<boolean> => {
+      if (!account) {
+        throw new Error('Cannot verify signature: no active account.')
+      }
+      
       const isValid = await AccountService.callAccountMethod<'verify'>(
-        accountParams.network,
-        accountParams.accountIndex,
+        account.network,
+        account.accountIndex,
         'verify',
         message,
         signature,
@@ -217,40 +234,59 @@ export function useAccount<T extends object = {}>(
 
       return isValid
     },
-    [accountParams.network, accountParams.accountIndex],
+    [account],
   )
 
   const extension = useCallback((): T => {
+    if (!account) {
       return new Proxy({} as T, {
         get: (_target, prop) => {
-          if (typeof prop === 'string') {
-            return async (...args: unknown[]) => {
-               return await AccountService.callAccountMethod(
-                 accountParams.network,
-                 accountParams.accountIndex,
-                 prop,
-                 ...args,
-               )
-            }
+          if (prop === 'then') return undefined // Avoid issues with promise-like checks
+          
+          return () => {
+            throw new Error(
+              `Cannot call extension method "${String(
+                prop,
+              )}": no active account.`,
+            )
+          }
+        },
+      })
+    }
+
+    return new Proxy({} as T, {
+      get: (_target, prop) => {
+        if (typeof prop === 'string') {
+          return async (...args: unknown[]) => {
+            return await AccountService.callAccountMethod(
+              account.network,
+              account.accountIndex,
+              prop,
+              ...args,
+            )
           }
         }
-      })
-    },
-    [accountParams.network, accountParams.accountIndex],
-  )
+      },
+    })
+  }, [account])
 
   return useMemo(
-    () => (address ? {
+    () => ({
       address,
+      isLoading,
+      error: activeWalletError ?? addressLoaderError,
       account,
       getBalance,
       send,
       sign,
       verify,
       extension,
-    } : null),
+    }),
     [
       address,
+      isLoading,
+      activeWalletError,
+      addressLoaderError,
       account,
       getBalance,
       send,
