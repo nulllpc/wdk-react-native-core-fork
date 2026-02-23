@@ -38,7 +38,6 @@ export {
 } from './hooks/useBalance'
 
 export type {
-  TransferFeeEstimationResult,
   TransferFeeEstimationConfig,
   TransferFeeEstimationOptions,
 } from './hooks/useBalance'
