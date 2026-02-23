@@ -55,17 +55,10 @@ import {
   DEFAULT_QUERY_GC_TIME_MS,
   QUERY_KEY_TAGS,
 } from '../utils/constants'
-import { log, logError, logWarn } from '../utils/logger'
+import { logError } from '../utils/logger'
 import { validateWalletParams } from '../utils/validation'
 import type { BalanceFetchResult, IAsset } from '../types'
 
-// --- Transfer fee estimation (preload) constants ---
-const EVM_PLACEHOLDER_ADDRESS = '0x0000000000000000000000000000000000000100'
-const BITCOIN_PLACEHOLDER_ADDRESS = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'
-const BITCOIN_FEE_QUOTE_AMOUNT_SATS = 1000
-const DEFAULT_SKIP_NETWORKS = ['lightning', 'spark', 'ln']
-const DEFAULT_EVM_NETWORKS = ['ethereum', 'polygon', 'arbitrum', 'plasma', 'sepolia']
-const FEE_LOG_TAG = '[useBalance fee estimation]'
 
 /**
  * Balance query options
@@ -110,43 +103,19 @@ export interface RefreshBalanceParams {
 }
 
 /**
- * Result of a transfer fee estimation (preload).
- * Fee is in token units; multiply by token price for USD.
- */
-export interface TransferFeeEstimationResult {
-  /** Estimated fee in token units (same decimals as asset). */
-  feeInTokenUnits: number
-  /** Estimated fee in raw/smallest units. */
-  feeInRawUnits: number
-  /** True if the quote request failed. */
-  failed: boolean
-}
-
-/**
  * Config for transfer fee estimation (app-provided).
- * Transfer cost is the same for any recipient/amount, so we quote with a placeholder.
+ * The app is responsible for all network-specific branching logic.
+ * Returns fee in raw/smallest units (e.g. wei, satoshi).
  */
 export interface TransferFeeEstimationConfig {
-  /** Resolve token contract address for EVM quoteTransfer. */
-  getTokenAddress: (tokenSymbol: string, network: string) => string
-  /** Max fee cap for transfer (e.g. paymaster). */
-  getTransferMaxFee: (tokenAddress: string, network: string) => number
-  /** Network IDs to skip (e.g. lightning, spark). */
-  skipNetworks?: string[]
-  /** Network IDs that use EVM quoteTransfer. */
-  evmNetworks?: string[]
-  /** Override placeholder addresses (optional). */
-  placeholderAddresses?: {
-    evm?: string
-    bitcoin?: string
-  }
+  /** App-provided function to fetch the raw fee for a transfer. */
+  quoteFee: (network: string, accountIndex: number, asset: IAsset) => Promise<number>
 }
 
 /**
  * Options for the transfer fee estimation query (same interface as balance queries).
  */
 export interface TransferFeeEstimationOptions extends BalanceQueryOptions {
-  /** Required for EVM; used to resolve token address and transfer max fee. */
   config?: TransferFeeEstimationConfig
 }
 
@@ -307,83 +276,16 @@ async function fetchBalance(
 
 /**
  * Fetch transfer fee estimation for an asset (preload).
- * Uses placeholder address and 1 unit; transfer cost is the same for any recipient/amount.
- * Same interface pattern as fetchBalance: async (params) => result.
+ * All network-specific logic is delegated to config.quoteFee (app side).
+ * Returns fee in raw/smallest units (e.g. wei, satoshi).
  */
 async function fetchTransferFeeEstimation(
   network: string,
   accountIndex: number,
   asset: IAsset,
   config: TransferFeeEstimationConfig
-): Promise<TransferFeeEstimationResult> {
-  const networkLower = network.toLowerCase()
-  const skipNetworks = config.skipNetworks ?? DEFAULT_SKIP_NETWORKS
-  const evmNetworks = config.evmNetworks ?? DEFAULT_EVM_NETWORKS
-  const evmPlaceholder = config.placeholderAddresses?.evm ?? EVM_PLACEHOLDER_ADDRESS
-  const bitcoinPlaceholder = config.placeholderAddresses?.bitcoin ?? BITCOIN_PLACEHOLDER_ADDRESS
-  const symbol = asset.getSymbol()
-  const decimals = asset.getDecimals()
-
-  if (skipNetworks.some((n) => n.toLowerCase() === networkLower)) {
-    return { feeInTokenUnits: 0, feeInRawUnits: 0, failed: false }
-  }
-
-  try {
-    let feeInRawUnits = 0
-
-    if (symbol === 'BTC' && networkLower === 'bitcoin') {
-      const quoteResult = (await AccountService.callAccountMethod(
-        'bitcoin',
-        accountIndex,
-        'quoteSendTransaction',
-        {
-          to: bitcoinPlaceholder,
-          value: BITCOIN_FEE_QUOTE_AMOUNT_SATS,
-          confirmationTarget: 1,
-        }
-      )) as { fee: number } | null
-      feeInRawUnits = quoteResult?.fee ?? 0
-    } else if (evmNetworks.some((n) => n.toLowerCase() === networkLower)) {
-      const tokenAddress = config.getTokenAddress(symbol, network)
-      const quoteResult = (await AccountService.callAccountMethod(
-        network,
-        accountIndex,
-        'quoteTransfer',
-        [
-          {
-            token: tokenAddress,
-            recipient: evmPlaceholder,
-            amount: 1,
-          },
-          {
-            paymasterToken: { address: tokenAddress },
-            transferMaxFee: config.getTransferMaxFee(tokenAddress, network),
-          },
-        ]
-      )) as { fee: number } | null
-      feeInRawUnits = quoteResult?.fee ?? 0
-    }
-
-    const feeInTokenUnits = feeInRawUnits / Math.pow(10, decimals)
-    log(FEE_LOG_TAG, 'Fee preloaded', { network, token: symbol, feeInTokenUnits })
-    return { feeInTokenUnits, feeInRawUnits, failed: false }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const isRateLimited =
-      errorMessage.includes('ERR_RATE_LIMIT_EXCEEDED') ||
-      errorMessage.includes('Status: 429') ||
-      errorMessage.toLowerCase().includes('rate limit')
-    const isPaymasterAllowanceOrBalance =
-      errorMessage.includes('ACCOUNT_BALANCES') ||
-      errorMessage.toLowerCase().includes('required allowance') ||
-      errorMessage.toLowerCase().includes('token balance lower than')
-    if (isRateLimited || isPaymasterAllowanceOrBalance) {
-      logWarn(FEE_LOG_TAG, 'Fee preload failed', { network, token: symbol, error: errorMessage })
-    } else {
-      logError(`${FEE_LOG_TAG} Fee preload failed: ${errorMessage}`, { network, token: symbol })
-    }
-    return { feeInTokenUnits: 0, feeInRawUnits: 0, failed: true }
-  }
+): Promise<number> {
+  return config.quoteFee(network, accountIndex, asset)
 }
 
 /**

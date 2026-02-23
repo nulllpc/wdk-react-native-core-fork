@@ -53,6 +53,11 @@ export interface UseAccountReturn<T extends object> {
    * Verifies a signature.
    */
   verify: (message: string, signature: string) => Promise<boolean>
+  
+  /**
+   * Query fee for a transaction.
+   */
+  estimateFee: (params?: Partial<TransactionParams>) => Promise<Omit<TransactionResult, 'hash'>>
 
   /**
    * Accesses chain-specific or other modular features not included in the core API.
@@ -219,6 +224,23 @@ export function useAccount<T extends object = {}>(
     },
     [accountParams.network, accountParams.accountIndex],
   )
+  
+  const estimateFee = useCallback(
+    async (params?: Partial<TransactionParams>): Promise<Omit<TransactionResult, 'hash'>> => {
+      const tokenAddress = params?.asset?.isNative() ? undefined : params?.asset?.getContractAddress() ?? undefined
+      return await AccountService.callAccountMethod<'quoteTransaction'>(
+        accountParams.network,
+        accountParams.accountIndex,
+        'quoteTransaction',
+        {
+          to: params?.to,
+          value: params?.amount,
+          token: tokenAddress,
+        }
+      )
+    },
+    [accountParams.network, accountParams.accountIndex]
+  )
 
   const extension = useCallback((): T => {
       return new Proxy({} as T, {
@@ -244,6 +266,7 @@ export function useAccount<T extends object = {}>(
       address,
       account,
       getBalance,
+      estimateFee,
       send,
       sign,
       verify,
@@ -253,6 +276,7 @@ export function useAccount<T extends object = {}>(
       address,
       account,
       getBalance,
+      estimateFee,
       send,
       sign,
       verify,
