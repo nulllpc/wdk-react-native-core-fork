@@ -23,7 +23,7 @@ export interface UseAddressesReturn {
   loadAddresses: (
     accountIndices: number[],
     networks?: string[],
-  ) => Promise<void>
+  ) => Promise<AddressInfo[]>
   /**
    * A helper to get a filtered list of addresses for a single network.
    * Example: `getAddressesForNetwork('eth')`
@@ -80,24 +80,55 @@ export function useAddresses(): UseAddressesReturn {
   }, [activeWalletLoading])
 
   const loadAddresses = useCallback(
-    async (accountIndices: number[], networks?: string[]) => {
-      if (!activeWalletId) {
-        throw new Error('No active wallet to load addresses for.')
-      }
-
-      if (!wdkConfigs) {
-        throw new Error('WDK is not initialized.')
+    async (
+      accountIndices: number[],
+      networks?: string[],
+    ): Promise<AddressInfo[]> => {
+      if (!activeWalletId || !wdkConfigs) {
+        return []
       }
 
       const networksToLoad =
         networks || Object.values(wdkConfigs.networks).map((n) => n.blockchain)
 
-      const loadPromises = accountIndices.flatMap((accountIndex) =>
-        networksToLoad.map((network) =>
-          AddressService.getAddress(network, accountIndex, activeWalletId),
-        ),
+      const loadOperations = networksToLoad.flatMap((network) =>
+        accountIndices.map((accountIndex) => ({
+          network,
+          accountIndex,
+          promise: AddressService.getAddress(
+            network,
+            accountIndex,
+            activeWalletId,
+          ),
+        })),
       )
-      await Promise.all(loadPromises)
+
+      if (loadOperations.length === 0) {
+        return []
+      }
+
+      const settledPromises = await Promise.allSettled(
+        loadOperations.map((op) => op.promise),
+      )
+
+      const addresses: AddressInfo[] = []
+
+      settledPromises.forEach((result, i) => {
+        if (result.status === 'fulfilled' && result.value) {
+          const address = result.value
+          const op = loadOperations[i]
+          
+          if (op) {
+            addresses.push({
+              address,
+              network: op.network,
+              accountIndex: op.accountIndex,
+            })
+          }
+        }
+      })
+
+      return addresses
     },
     [activeWalletId, wdkConfigs],
   )
