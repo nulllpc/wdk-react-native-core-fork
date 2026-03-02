@@ -72,7 +72,7 @@ describe('useWalletManager', () => {
         undefined,
       )
 
-      const { useWalletManager } = await import('../../hooks/useWalletManager')
+      const { useWalletManager } = await import('../../hooks/useWalletManagerV2')
 
       // Since we can't easily test React hooks in Node, we verify the service calls
       expect(WalletSetupService.initializeWallet).toBeDefined()
