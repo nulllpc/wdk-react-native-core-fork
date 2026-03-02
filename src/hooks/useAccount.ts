@@ -310,11 +310,10 @@ export function useAccount<T extends object = {}>(
           const currentAccount = accountRef.current;
 
           if (!currentAccount) {
-            throw new Error(
-              `Cannot call extension method "${String(
-                prop,
-              )}": no active account.`,
+            console.error(
+              `[useAccount] Cannot call extension method: no active account.`,
             )
+            return undefined
           }
 
           if (typeof prop === 'string') {
