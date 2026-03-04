@@ -67,6 +67,8 @@ export interface UseAccountReturn<T extends object> {
   
   /**
    * Query fee for a transaction.
+   * All params are optional — if not provided, falls back to the account's own
+   * address for `to` and '1' (smallest unit) for `amount`.
    */
   estimateFee: (params?: Partial<TransactionParams>) => Promise<Omit<TransactionResult, 'hash'>>
 
@@ -289,13 +291,32 @@ export function useAccount<T extends object = {}>(
   
   const estimateFee = useCallback(
     async (params?: Partial<TransactionParams>): Promise<Omit<TransactionResult, 'hash'>> => {
-      // call AccountService.callAccountMethod to invoke quoteTransaction method of WDK
-      // please define interface for quoteTransaction in DefaultAccountMethods
-      // refer to my implementation of verify, sign,...
-      // 
-      return { success: true, fee: '100' }
+      const to = params?.to ?? address ?? ''
+      const amount = params?.amount ?? '1'
+
+      if (!params?.asset || params.asset.isNative()) {
+        return await AccountService.callAccountMethod<'quoteSendTransaction'>(
+          accountParams.network,
+          accountParams.accountIndex,
+          'quoteSendTransaction',
+          { to, value: amount },
+        )
+      }
+
+      const tokenAddress = params.asset.getContractAddress()
+
+      if (!tokenAddress) {
+        throw new Error('Token address cannot be null')
+      }
+
+      return await AccountService.callAccountMethod<'quoteTransfer'>(
+        accountParams.network,
+        accountParams.accountIndex,
+        'quoteTransfer',
+        { recipient: to, amount, token: tokenAddress },
+      )
     },
-    []
+    [accountParams.network, accountParams.accountIndex, address],
   )
 
   const extension = useCallback((): T => {
@@ -351,6 +372,7 @@ export function useAccount<T extends object = {}>(
       addressLoaderError,
       account,
       getBalance,
+      estimateFee,
       send,
       sign,
       verify,

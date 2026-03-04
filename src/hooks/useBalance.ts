@@ -63,6 +63,7 @@ import { useAddressLoader } from './useAddressLoader';
 import { useMultiAddressLoader } from './useMultiAddressLoader';
 import type { BalanceFetchResult, IAsset } from '../types'
 
+
 /**
  * Balance query options
  */

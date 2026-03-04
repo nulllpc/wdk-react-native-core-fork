@@ -54,4 +54,12 @@ export interface DefaultAccountMethods extends MethodMap {
     params: [message: string]
     result: string
   }
+  quoteSendTransaction: {
+    params: [tx: { to: string; value: string }]
+    result: { fee: string }
+  }
+  quoteTransfer: {
+    params: [tx: { recipient: string; amount: string; token: string }]
+    result: { fee: string }
+  }
 }
