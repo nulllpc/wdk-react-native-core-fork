@@ -151,7 +151,7 @@ describe('useWalletManager', () => {
       )
       mockWalletStore.getState.mockReturnValue({
         walletList: [
-          { identifier: 'test-wallet', exists: true, isActive: true },
+          { identifier: 'test-wallet', exists: true },
         ],
         activeWalletId: 'test-wallet',
       })
@@ -256,8 +256,8 @@ describe('useWalletManager', () => {
   describe('wallet list state', () => {
     it('should return wallet list from store', () => {
       const walletList = [
-        { identifier: 'wallet-1', exists: true, isActive: true },
-        { identifier: 'wallet-2', exists: true, isActive: false },
+        { identifier: 'wallet-1', exists: true },
+        { identifier: 'wallet-2', exists: true },
       ]
 
       mockWalletStore.getState.mockReturnValue({
