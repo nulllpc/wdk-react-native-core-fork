@@ -7,7 +7,7 @@
 import { AccountService } from '../services/accountService'
 import { getWalletStore } from '../store/walletStore'
 import { getWorkletStore } from '../store/workletStore'
-import type { WalletStore as WalletStoreType } from '../store/walletStore'
+import type { WalletStoreV1 as WalletStoreType } from '../types/store'
 import type { WalletStore } from '../types'
 
 /**

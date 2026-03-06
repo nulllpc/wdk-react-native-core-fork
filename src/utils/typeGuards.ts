@@ -25,10 +25,9 @@ import {
 import type {
   WdkConfigs,
   AssetConfig,
-  WalletAddresses,
-  WalletBalances,
   WdkNetworkConfig,
 } from '../types'
+import { WalletAddressesV1, WalletBalancesV1 } from '../types/store'
 
 /**
  * Type guard to check if a value is a valid NetworkConfig
@@ -58,7 +57,7 @@ export function isAssetConfig(value: unknown): value is AssetConfig {
  * Type guard to check if a value is a valid WalletAddresses structure
  * Uses Zod schema internally for validation
  */
-export function isWalletAddresses(value: unknown): value is WalletAddresses {
+export function isWalletAddresses(value: unknown): value is WalletAddressesV1 {
   return walletAddressesSchema.safeParse(value).success
 }
 
@@ -66,7 +65,7 @@ export function isWalletAddresses(value: unknown): value is WalletAddresses {
  * Type guard to check if a value is a valid WalletBalances structure
  * Uses Zod schema internally for validation
  */
-export function isWalletBalances(value: unknown): value is WalletBalances {
+export function isWalletBalances(value: unknown): value is WalletBalancesV1 {
   return walletBalancesSchema.safeParse(value).success
 }
 
