@@ -170,3 +170,28 @@ export interface WalletStateV2 {
 }
 
 export type WalletStoreV2 = WalletStateV2
+
+/**
+ * Composite Key Format: `${walletId}::${network}::${accountKey}`
+ * Account Key Format: `i:${accountIndex}` OR `p:${derivationPath}`
+ */
+ 
+export function getAccountKeyV2(descriptor: AccountDescriptor): string {
+  if (descriptor.derivationPath !== undefined) {
+    return `p:${descriptor.derivationPath}`
+  }
+
+  return `i:${descriptor.accountIndex}`
+}
+
+export function getCompositeKeyV2(
+  walletId: string,
+  network: string,
+  accountKey: string,
+): string {
+  return `${walletId}::${network}::${accountKey}`
+}
+
+export function getBalanceKeyV2(compositeAccountKey: string, assetId: string) {
+  return `${compositeAccountKey}::${assetId}`
+}

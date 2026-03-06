@@ -41,47 +41,7 @@ export interface WdkConfigs<TNetwork = Record<string, unknown>, TProtocol = Reco
 }
 
 /**
- * Wallet Addresses
- * 
- * Maps network -> accountIndex -> address
- * Structure: { [network]: { [accountIndex]: address } }
- */
-export type WalletAddresses = Record<string, Record<number, string>>
-
-/**
- * Wallet Addresses by Wallet Identifier
- * 
- * Maps walletId -> network -> accountIndex -> address
- * Structure: { [walletId]: { [network]: { [accountIndex]: address } } }
- */
-export type WalletAddressesByWallet = Record<string, WalletAddresses>
-
-/**
- * Wallet Balances
- * 
- * Maps network -> accountIndex -> assetId -> balance
- * Structure: { [network]: { [accountIndex]: { [assetId]: balance } } }
- * Note: balance is stored as a string to handle BigInt values
- */
-export type WalletBalances = Record<string, Record<number, Record<string, string>>>
-
-/**
- * Wallet Balances by Wallet Identifier
- * 
- * Maps walletId -> network -> accountIndex -> assetId -> balance
- * Structure: { [walletId]: { [network]: { [accountIndex]: { [assetId]: balance } } } }
- */
-export type WalletBalancesByWallet = Record<string, WalletBalances>
-
-/**
- * Balance Loading States
- * 
- * Maps "network-accountIndex-assetId" -> boolean
- * Used to track which balances are currently being fetched.
- */
-export type BalanceLoadingStates = Record<string, boolean>
-
-/**
+ * @deprecated
  * Balance Fetch Result
  * 
  * Result of a balance fetch operation.
