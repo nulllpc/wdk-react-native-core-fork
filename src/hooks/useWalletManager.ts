@@ -228,7 +228,12 @@ export function useWalletManager(): UseWalletManagerResult {
   const refreshWalletList = useCallback(
     async (knownIdentifiers?: string[]) => {
       try {
-        const identifiersToCheck = knownIdentifiers || []
+        const existingWallets = walletStore.getState().walletList || []
+        const existingIdentifiers = existingWallets.map(w => w.identifier)
+
+        const identifiersToCheck = Array.from(
+          new Set([...(knownIdentifiers || []), ...existingIdentifiers]),
+        )
 
         if (identifiersToCheck.length === 0) {
           const defaultExists = await checkWallet(DEFAULT_WALLET_IDENTIFIER)
@@ -250,7 +255,7 @@ export function useWalletManager(): UseWalletManagerResult {
         throw err
       }
     },
-    [checkWallet],
+    [checkWallet, walletStore],
   )
 
   const restoreWallet = useCallback(
@@ -276,7 +281,7 @@ export function useWalletManager(): UseWalletManagerResult {
         await WalletSetupService.initializeFromMnemonic(mnemonic, walletId)
 
         // Refresh the main wallet list so the UI updates
-        await refreshWalletList()
+        await refreshWalletList([walletId])
 
         walletStore.setState((prev) =>
           updateWalletLoadingState(prev, {
