@@ -5,7 +5,7 @@ import type { IAsset } from '../types'
 import { BalanceFetchResult } from '../types'
 import { convertBalanceToString } from '../utils/balanceUtils'
 import { useAddressLoader } from './useAddressLoader'
-import { requireInitialized } from 'src/utils/storeHelpers'
+import { requireInitialized } from '../utils/storeHelpers'
 
 export type UseAccountParams = {
   accountIndex: number
