@@ -40,7 +40,7 @@ export class AccountService {
     validateNetworkName(network)
     validateAccountIndex(accountIndex)
 
-    const hrpc = requireInitialized()
+    const hrpc = await requireInitialized()
 
     let argsString: string | undefined = undefined
     if (args !== undefined && args !== null) {

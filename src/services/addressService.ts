@@ -61,7 +61,7 @@ export class AddressService {
     }
 
     // Require initialized worklet
-    const hrpc = requireInitialized()
+    const hrpc = await requireInitialized()
 
     const loadingKey = `${network}-${accountIndex}`
 

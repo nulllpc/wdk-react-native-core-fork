@@ -115,7 +115,8 @@ export interface WorkletState {
   // Cache TTL configuration (time to live in milliseconds)
   // Default: 5 minutes - credentials expire after this time
   credentialsCacheTTL: number
-  isInitializedPromise: ResolvablePromise<boolean>
+  isWorkletStartedPromise: ResolvablePromise<boolean>
+  isWorkletInitializedPromise: ResolvablePromise<boolean>
 }
 
 export type WorkletStore = WorkletState
@@ -137,7 +138,8 @@ const initialState: WorkletState = {
   wdkInitResult: null,
   credentialsCache: {},
   credentialsCacheTTL: 5 * 60 * 1000, // 5 minutes
-  isInitializedPromise: createResolvablePromise<boolean>()
+  isWorkletStartedPromise: createResolvablePromise<boolean>(),
+  isWorkletInitializedPromise: createResolvablePromise<boolean>()
 }
 
 let workletStoreInstance: WorkletStoreInstance | null = null

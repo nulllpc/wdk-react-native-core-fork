@@ -9,7 +9,6 @@ import {
   WalletState,
 } from '../store/walletStore'
 import { getWorkletStore } from '../store/workletStore'
-import { WdkConfigs } from '../types'
 import { log, logError } from '../utils/logger'
 import { withOperationMutex } from '../utils/operationMutex'
 import { useShallow } from 'zustand/react/shallow'

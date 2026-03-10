@@ -4,7 +4,6 @@
 
 import {
   requireInitialized,
-  isInitialized,
   updateBalanceInState,
   updateAddressInState,
 } from '../../utils/storeHelpers'
@@ -63,30 +62,6 @@ describe('storeHelpers', () => {
       }))
 
       expect(() => requireInitialized()).toThrow('WDK not initialized')
-    })
-  })
-
-  describe('isInitialized', () => {
-    it('should return true when initialized', () => {
-      expect(isInitialized()).toBe(true)
-    })
-
-    it('should return false when not initialized', () => {
-      mockWorkletStore.getState = jest.fn(() => ({
-        isInitialized: false,
-        hrpc: null,
-      }))
-
-      expect(isInitialized()).toBe(false)
-    })
-
-    it('should return false when HRPC is null', () => {
-      mockWorkletStore.getState = jest.fn(() => ({
-        isInitialized: true,
-        hrpc: null,
-      }))
-
-      expect(isInitialized()).toBe(false)
     })
   })
 
