@@ -164,6 +164,7 @@ export class WorkletLifecycleService {
       })
       store.getState().isWorkletStartedPromise.resolve(true)
     } catch (error) {
+      store.getState().isWorkletStartedPromise.reject(error)
       this.handleErrorWithStateUpdate(
         error,
         'startWorklet',
@@ -248,6 +249,7 @@ export class WorkletLifecycleService {
       })
       store.getState().isWorkletInitializedPromise.resolve(true)
     } catch (error) {
+      store.getState().isWorkletInitializedPromise.reject(error)
       this.handleErrorWithStateUpdate(
         error,
         'initializeWDK',
