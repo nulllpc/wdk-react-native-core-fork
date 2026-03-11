@@ -277,6 +277,8 @@ export function useWalletManager(): UseWalletManagerResult {
         // Refresh the main wallet list so the UI updates
         await refreshWalletList([walletId])
 
+        walletStore.setState({ activeWalletId: walletId })
+
         walletStore.setState((prev) =>
           updateWalletLoadingState(prev, {
             type: 'ready',
