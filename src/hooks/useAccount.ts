@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useEffect } from 'react'
+import { useCallback, useMemo } from 'react'
 import { AccountService } from '../services/accountService'
 import { getWalletStore } from '../store/walletStore'
 import type { IAsset } from '../types'
@@ -113,18 +113,12 @@ export function useAccount<T extends object = {}>(
       address,
     ],
   )
-  
-  const accountRef = useRef(account)
-  useEffect(() => {
-    accountRef.current = account
-  }, [account])
 
   const getBalance = useCallback(
     async (tokens: IAsset[]): Promise<BalanceFetchResult[]> => {
       await requireInitialized();
-      const currentAccount = accountRef.current;
 
-      if (!currentAccount) {
+      if (!account) {
         return tokens.map(asset => ({
           success: false,
           network: accountParams.network,
@@ -147,7 +141,7 @@ export function useAccount<T extends object = {}>(
             if (asset.isNative()) {
               balanceResult = await AccountService.callAccountMethod<
                 'getBalance'
-              >(currentAccount.network, currentAccount.accountIndex, 'getBalance')
+              >(account.network, account.accountIndex, 'getBalance')
             } else {
               const tokenAddress = asset.getContractAddress()
 
@@ -158,8 +152,8 @@ export function useAccount<T extends object = {}>(
               balanceResult = await AccountService.callAccountMethod<
                 'getTokenBalance'
               >(
-                currentAccount.network,
-                currentAccount.accountIndex,
+                account.network,
+                account.accountIndex,
                 'getTokenBalance',
                 tokenAddress,
               )
@@ -169,16 +163,16 @@ export function useAccount<T extends object = {}>(
 
             return {
               success: true,
-              network: currentAccount.network,
-              accountIndex: currentAccount.accountIndex,
+              network: account.network,
+              accountIndex: account.accountIndex,
               assetId: asset.getId(),
               balance,
             }
           } catch (err) {
             return {
               success: false,
-              network: currentAccount.network,
-              accountIndex: currentAccount.accountIndex,
+              network: account.network,
+              accountIndex: account.accountIndex,
               assetId: asset.getId(),
               balance: null,
               error: err instanceof Error ? err.message : String(err),
@@ -189,15 +183,14 @@ export function useAccount<T extends object = {}>(
 
       return results
     },
-    [accountRef, accountParams.network, accountParams.accountIndex],
+    [account, accountParams.network, accountParams.accountIndex],
   )
 
   const send = useCallback(
     async (params: TransactionParams): Promise<TransactionResult> => {
       await requireInitialized();
-      
-      const currentAccount = accountRef.current;
-      if (!currentAccount) {
+
+      if (!account) {
         return {
           success: false,
           hash: '',
@@ -205,20 +198,20 @@ export function useAccount<T extends object = {}>(
           error: 'Cannot send transaction: no active account'
         }
       }
-      
+
       const { to, asset, amount } = params
 
       if (asset.isNative()) {
         const txResult = await AccountService.callAccountMethod<'sendTransaction'>(
-          currentAccount.network,
-          currentAccount.accountIndex,
+          account.network,
+          account.accountIndex,
           'sendTransaction',
           {
             to,
             value: amount,
           },
         )
-        
+
         return {
           success: true,
           ...txResult
@@ -236,8 +229,8 @@ export function useAccount<T extends object = {}>(
         }
 
         const txResult = await AccountService.callAccountMethod<'transfer'>(
-          currentAccount.network,
-          currentAccount.accountIndex,
+          account.network,
+          account.accountIndex,
           'transfer',
           {
             recipient: to,
@@ -245,22 +238,21 @@ export function useAccount<T extends object = {}>(
             token: tokenAddress,
           },
         )
-        
+
         return {
           success: true,
           ...txResult
         }
       }
     },
-    [accountRef],
+    [account],
   )
 
   const sign = useCallback(
     async (message: string): Promise<UseAccountResponse & { signature: string }> => {
       await requireInitialized();
-      const currentAccount = accountRef.current;
 
-      if (!currentAccount) {
+      if (!account) {
         return {
           success: false,
           signature: '',
@@ -269,8 +261,8 @@ export function useAccount<T extends object = {}>(
       }
 
       const signature = await AccountService.callAccountMethod<'sign'>(
-        currentAccount.network,
-        currentAccount.accountIndex,
+        account.network,
+        account.accountIndex,
         'sign',
         message,
       )
@@ -280,25 +272,24 @@ export function useAccount<T extends object = {}>(
         signature
       }
     },
-    [accountRef],
+    [account],
   )
 
   const verify = useCallback(
     async (message: string, signature: string): Promise<UseAccountResponse & { verified: boolean }> => {
       await requireInitialized();
-      const currentAccount = accountRef.current;
 
-      if (!currentAccount) {
+      if (!account) {
         return {
           success: false,
           verified: false,
           error: 'Cannot verify signature: no active account'
         }
       }
-      
+
       const isValid = await AccountService.callAccountMethod<'verify'>(
-        currentAccount.network,
-        currentAccount.accountIndex,
+        account.network,
+        account.accountIndex,
         'verify',
         message,
         signature,
@@ -309,17 +300,16 @@ export function useAccount<T extends object = {}>(
         verified: isValid
       }
     },
-    [accountRef],
+    [account],
   )
-  
+
   const estimateFee = useCallback(
     async (
       params: TransactionParams,
     ): Promise<Omit<TransactionResult, 'hash'>> => {
       await requireInitialized();
-      const currentAccount = accountRef.current;
 
-      if (!currentAccount) {
+      if (!account) {
         return {
           success: false,
           error: 'Cannot estimate fee: account is not active or not initialized.',
@@ -330,8 +320,8 @@ export function useAccount<T extends object = {}>(
       if (params.asset.isNative()) {
         const feeResponse =
           await AccountService.callAccountMethod<'quoteSendTransaction'>(
-            currentAccount.network,
-            currentAccount.accountIndex,
+            account.network,
+            account.accountIndex,
             'quoteSendTransaction',
             { to: params.to, value: params.amount },
           )
@@ -353,8 +343,8 @@ export function useAccount<T extends object = {}>(
       }
 
       const feeResponse = await AccountService.callAccountMethod<'quoteTransfer'>(
-        currentAccount.network,
-        currentAccount.accountIndex,
+        account.network,
+        account.accountIndex,
         'quoteTransfer',
         { recipient: params.to, amount: params.amount, token: tokenAddress },
       )
@@ -364,7 +354,7 @@ export function useAccount<T extends object = {}>(
         ...feeResponse,
       }
     },
-    [accountRef],
+    [account],
   )
 
   const extension = useCallback((): T => {
@@ -378,9 +368,7 @@ export function useAccount<T extends object = {}>(
         return async (...args: unknown[]) => {
           await requireInitialized();
 
-          const currentAccount = accountRef.current
-
-          if (!currentAccount) {
+          if (!account) {
             console.error(
               '[useAccount] Extension call failed: Account is not available even after wallet initialization.',
             )
@@ -389,8 +377,8 @@ export function useAccount<T extends object = {}>(
 
           if (typeof prop === 'string') {
             return await AccountService.callAccountMethod(
-              currentAccount.network,
-              currentAccount.accountIndex,
+              account.network,
+              account.accountIndex,
               prop,
               ...args,
             )
@@ -398,7 +386,7 @@ export function useAccount<T extends object = {}>(
         }
       },
     })
-  }, [accountRef])
+  }, [account])
 
   return useMemo(
     () => {
