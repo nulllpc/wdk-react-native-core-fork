@@ -52,6 +52,10 @@ export interface DefaultAccountMethods extends MethodMap {
     params: [tokenAddress: string]
     result: string
   }
+  getTokenBalances: {
+    params: [tokenAddresses: string[]]
+    result: Record<string, string>
+  }
   verify: {
     params: [message: string, signature: string]
     result: boolean

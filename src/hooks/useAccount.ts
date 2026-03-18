@@ -146,34 +146,73 @@ export function useAccount<T extends object = {}>(
       if (!tokens || tokens.length === 0) {
         return []
       }
+      
+      const nativeTokenPromises = tokens.filter(asset => asset.isNative()).map(async (asset) => {
+        try {
+          const balanceResult = await AccountService.callAccountMethod<
+            'getBalance'
+          >(account.network, account.accountIndex, 'getBalance')
+          const balance = convertBalanceToString(balanceResult)
 
-      const results = await Promise.all(
-        tokens.map(async (asset) => {
-          try {
-            let balanceResult: string
+          return {
+            success: true,
+            network: account.network,
+            accountIndex: account.accountIndex,
+            assetId: asset.getId(),
+            balance,
+          }
+        } catch (err) {
+          return {
+            success: false,
+            network: account.network,
+            accountIndex: account.accountIndex,
+            assetId: asset.getId(),
+            balance: null,
+            error: err instanceof Error ? err.message : String(err),
+          }
+        }
+      })
+      
+      const nonNativeTokens = tokens.filter(asset => !asset.isNative());
+      const nonNativeResultsPromise = (async () => {
+        if (nonNativeTokens.length === 0) {
+          return [];
+        }
 
-            if (asset.isNative()) {
-              balanceResult = await AccountService.callAccountMethod<
-                'getBalance'
-              >(account.network, account.accountIndex, 'getBalance')
-            } else {
-              const tokenAddress = asset.getContractAddress()
+        try {
+          const nonNativeTokenAddresses = nonNativeTokens.map((asset) => {
+            const address = asset.getContractAddress();
+            if (!address) {
+              throw new Error(`Asset ${asset.getId()} is non-native but has no contract address.`);
+            }
+            return address;
+          });
 
-              if (!tokenAddress) {
-                throw new Error('Token address cannot be null')
-              }
+          const balanceMap = await AccountService.callAccountMethod<
+            'getTokenBalances'
+          >(
+            account.network,
+            account.accountIndex,
+            'getTokenBalances',
+            nonNativeTokenAddresses,
+          );
 
-              balanceResult = await AccountService.callAccountMethod<
-                'getTokenBalance'
-              >(
-                account.network,
-                account.accountIndex,
-                'getTokenBalance',
-                tokenAddress,
-              )
+          return nonNativeTokens.map((asset) => {
+            const address = asset.getContractAddress()!;
+            const balanceResult = balanceMap[address];
+
+            if (balanceResult === undefined) {
+              return {
+                success: false,
+                network: account.network,
+                accountIndex: account.accountIndex,
+                assetId: asset.getId(),
+                balance: null,
+                error: 'Balance not returned from service.',
+              };
             }
 
-            const balance = convertBalanceToString(balanceResult)
+            const balance = convertBalanceToString(balanceResult);
 
             return {
               success: true,
@@ -181,21 +220,26 @@ export function useAccount<T extends object = {}>(
               accountIndex: account.accountIndex,
               assetId: asset.getId(),
               balance,
-            }
-          } catch (err) {
-            return {
-              success: false,
-              network: account.network,
-              accountIndex: account.accountIndex,
-              assetId: asset.getId(),
-              balance: null,
-              error: err instanceof Error ? err.message : String(err),
-            }
-          }
-        }),
-      )
+            };
+          });
+        } catch (err) {
+          return nonNativeTokens.map(asset => ({
+            success: false,
+            network: account.network,
+            accountIndex: account.accountIndex,
+            assetId: asset.getId(),
+            balance: null,
+            error: err instanceof Error ? err.message : String(err),
+          }));
+        }
+      })();
 
-      return results
+      const results = await Promise.all([
+        ...nativeTokenPromises,
+        nonNativeResultsPromise,
+      ]);
+
+      return results.flat();
     },
     [account, accountParams.network, accountParams.accountIndex],
   )
