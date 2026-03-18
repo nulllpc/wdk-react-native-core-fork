@@ -323,9 +323,8 @@ export function useBalance(
       !!activeWalletId && !!address,
     ),
     refetchInterval: options?.refetchInterval,
-    staleTime: options?.staleTime ?? DEFAULT_QUERY_STALE_TIME_MS,
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
-    initialData,
+    placeholderData: initialData,
   })
 
   const isLoading = isAddressLoading || (query.isLoading && !!address)
@@ -563,9 +562,8 @@ export function useBalancesForWallet(
       !!walletId && !areAddressesLoading && assetConfigs.length > 0,
     ),
     refetchInterval: options?.refetchInterval,
-    staleTime: options?.staleTime ?? DEFAULT_QUERY_STALE_TIME_MS,
     gcTime: DEFAULT_QUERY_GC_TIME_MS,
-    initialData,
+    placeholderData: initialData,
   });
 
   const isLoading = areAddressesLoading || query.isLoading;
