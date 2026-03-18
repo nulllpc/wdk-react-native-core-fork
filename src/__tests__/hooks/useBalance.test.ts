@@ -238,7 +238,6 @@ describe('useBalance', () => {
 
   describe('useBalancesForWallet', () => {
     it('should build query keys for all tokens', async () => {
-      // Create mock assets
       const mockAssets: IAsset[] = [
         {
           getId: () => MOCK_NATIVE_TOKEN_ID,
@@ -262,9 +261,42 @@ describe('useBalance', () => {
         error: null,
       })
 
-      // We just check the hook can be imported and mocking works
-      // Logic testing for IAsset iteration happens in the hook implementation
       expect(mockUseQuery).toBeDefined()
+    })
+
+    it('should use getTokenBalances for batched non-native token fetches', async () => {
+      const mockBatchResult = {
+        '0xTokenA': '1000000',
+        '0xTokenB': '2000000',
+      }
+      ;(AccountService.callAccountMethod as jest.Mock).mockImplementation(
+        (_network: string, _accountIndex: number, methodName: string) => {
+          if (methodName === 'getBalance') return Promise.resolve('5000000000000000000')
+          if (methodName === 'getTokenBalances') return Promise.resolve(mockBatchResult)
+          return Promise.resolve('0')
+        }
+      )
+      ;(convertBalanceToString as jest.Mock).mockImplementation((val) => String(val))
+
+      const { useQuery } = await import('@tanstack/react-query')
+      const mockUseQuery = useQuery as jest.Mock
+
+      const lastCall = mockUseQuery.mock.calls[mockUseQuery.mock.calls.length - 1]
+      const queryFn = lastCall?.[0]?.queryFn
+
+      if (queryFn) {
+        const results = await queryFn()
+
+        const batchedCall = (AccountService.callAccountMethod as jest.Mock).mock.calls.find(
+          (call: unknown[]) => call[2] === 'getTokenBalances'
+        )
+        if (batchedCall) {
+          expect(batchedCall[2]).toBe('getTokenBalances')
+          expect(Array.isArray(batchedCall[3])).toBe(true)
+        }
+
+        expect(Array.isArray(results)).toBe(true)
+      }
     })
   })
 

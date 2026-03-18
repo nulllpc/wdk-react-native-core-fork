@@ -102,45 +102,35 @@ export function useAccount<T extends object = {}>(
 
   const getBalance = useCallback(
     async (tokens: IAsset[]): Promise<BalanceFetchResult[]> => {
-
       if (!tokens || tokens.length === 0) {
         return []
       }
 
-      const results = await Promise.all(
-        tokens.map(async (asset) => {
+      const nativeAssets: IAsset[] = []
+      const nonNativeAssets: IAsset[] = []
+
+      for (const asset of tokens) {
+        if (asset.isNative()) {
+          nativeAssets.push(asset)
+        } else {
+          nonNativeAssets.push(asset)
+        }
+      }
+
+      const nativeResults = await Promise.all(
+        nativeAssets.map(async (asset): Promise<BalanceFetchResult> => {
           try {
-            let balanceResult: string
-            
-            if (asset.isNative()) {
-              balanceResult = await AccountService.callAccountMethod<'getBalance'>(
-                accountParams.network,
-                accountParams.accountIndex,
-                'getBalance'
-              )
-            } else {
-              const tokenAddress = asset.getContractAddress()
-              
-              if (!tokenAddress) {
-                throw new Error('Token address cannot be null')
-              }
-              
-              balanceResult = await AccountService.callAccountMethod<'getTokenBalance'>(
-                accountParams.network,
-                accountParams.accountIndex,
-                'getTokenBalance',
-                tokenAddress
-              )
-            }
-
-            const balance = convertBalanceToString(balanceResult)
-
+            const balanceResult = await AccountService.callAccountMethod<'getBalance'>(
+              accountParams.network,
+              accountParams.accountIndex,
+              'getBalance',
+            )
             return {
               success: true,
               network: accountParams.network,
               accountIndex: accountParams.accountIndex,
               assetId: asset.getId(),
-              balance,
+              balance: convertBalanceToString(balanceResult),
             }
           } catch (error) {
             return {
@@ -155,7 +145,48 @@ export function useAccount<T extends object = {}>(
         }),
       )
 
-      return results
+      let tokenResults: BalanceFetchResult[] = []
+
+      if (nonNativeAssets.length > 0) {
+        const tokenAddresses = nonNativeAssets.map((t) => {
+          const addr = t.getContractAddress()
+          if (!addr) throw new Error(`Token address cannot be null for asset ${t.getId()}`)
+          return addr
+        })
+
+        try {
+          const balancesMap = await AccountService.callAccountMethod<'getTokenBalances'>(
+            accountParams.network,
+            accountParams.accountIndex,
+            'getTokenBalances',
+            tokenAddresses,
+          )
+
+          tokenResults = nonNativeAssets.map((token) => {
+            const addr = token.getContractAddress()!
+            const rawBalance = balancesMap[addr] ?? '0'
+            return {
+              success: true,
+              network: accountParams.network,
+              accountIndex: accountParams.accountIndex,
+              assetId: token.getId(),
+              balance: convertBalanceToString(rawBalance),
+            }
+          })
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          tokenResults = nonNativeAssets.map((token) => ({
+            success: false,
+            network: accountParams.network,
+            accountIndex: accountParams.accountIndex,
+            assetId: token.getId(),
+            balance: null,
+            error: errorMessage,
+          }))
+        }
+      }
+
+      return [...nativeResults, ...tokenResults]
     },
     [accountParams.network, accountParams.accountIndex],
   )

@@ -582,6 +582,7 @@ For security, only these methods can be called via `callAccountMethod`:
 - `getAddress` - Get wallet address
 - `getBalance` - Get native token balance
 - `getTokenBalance` - Get ERC20 token balance
+- `getTokenBalances` - Get multiple ERC20 token balances in a single batched RPC call
 - `signMessage` - Sign a message
 - `signTransaction` - Sign a transaction
 - `sendTransaction` - Send a transaction

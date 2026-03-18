@@ -88,6 +88,17 @@ export class AccountService {
         }
       }
 
+      if (methodName === 'getTokenBalances') {
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          throw new Error(`Invalid batched balance format: expected Record<string, string>, got ${typeof parsed}`)
+        }
+        for (const [addr, balance] of Object.entries(parsed)) {
+          if (typeof balance !== 'string' || !/^\d+$/.test(balance)) {
+            throw new Error(`Invalid balance format for token ${addr}: ${balance}`)
+          }
+        }
+      }
+
       return convertBigIntToString(parsed)
     } catch (error) {
       handleServiceError(

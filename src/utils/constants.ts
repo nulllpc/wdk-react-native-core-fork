@@ -38,6 +38,7 @@ export const DEFAULT_MNEMONIC_WORD_COUNT = MNEMONIC_WORD_COUNTS.TWELVE
  */
 export const ACCOUNT_METHOD_GET_BALANCE = 'getBalance'
 export const ACCOUNT_METHOD_GET_TOKEN_BALANCE = 'getTokenBalance'
+export const ACCOUNT_METHOD_GET_TOKEN_BALANCES = 'getTokenBalances'
 
 /**
  * Wallet identifier constants
@@ -75,6 +76,7 @@ export const ALLOWED_ACCOUNT_METHODS = [
   'getAddress',
   'getBalance',
   'getTokenBalance',
+  'getTokenBalances',
   'signMessage',
   'signTransaction',
   'sendTransaction',
