@@ -188,7 +188,7 @@ export function createWalletStore(): WalletStoreInstance {
           },
         },
       ),
-      { name: 'WalletStore' },
+      { name: 'WalletStore', enabled: __DEV__ },
     ),
   )
 
