@@ -18,7 +18,6 @@ import { useShallow } from 'zustand/react/shallow'
 import { AddressService } from '../services/addressService'
 import { getWalletStore } from '../store/walletStore'
 import { logError } from '../utils/logger'
-import { getWorkletStore } from '../store/workletStore'
 
 export interface UseAddressLoaderParams {
   network: string
@@ -35,11 +34,6 @@ export function useAddressLoader({
   network,
   accountIndex,
 }: UseAddressLoaderParams): UseAddressLoaderResult {
-  const { isInitialized } = getWorkletStore()(
-    useShallow((state) => ({
-      isInitialized: state.isInitialized,
-    })),
-  )
   const walletStore = getWalletStore()
   const [error, setError] = useState<Error | null>(null)
 
@@ -70,7 +64,6 @@ export function useAddressLoader({
 
     const shouldLoad =
       activeWalletId &&
-      isInitialized &&
       !address &&
       !isAddressLoadingInStore
 
@@ -105,7 +98,6 @@ export function useAddressLoader({
     accountIndex,
     address,
     isAddressLoadingInStore,
-    isInitialized,
   ])
 
   const isLoading = isAddressLoadingInStore && !error

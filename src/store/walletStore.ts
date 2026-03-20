@@ -188,7 +188,7 @@ export function createWalletStore(): WalletStoreInstance {
           },
         },
       ),
-      { name: 'WalletStore' },
+      { name: 'WalletStore', enabled: __DEV__ },
     ),
   )
 
@@ -229,7 +229,9 @@ function isValidStateTransition(
     case 'checking':
       return nextType === 'loading' || nextType === 'error'
     case 'loading':
-      return nextType === 'ready' || nextType === 'error'
+      return (
+        nextType === 'ready' || nextType === 'error' || nextType === 'loading'
+      )
     case 'ready':
       return (
         nextType === 'not_loaded' ||
@@ -256,6 +258,11 @@ export function updateWalletLoadingState(
   state: WalletState,
   newState: WalletLoadingState,
 ) {
+  if (state.walletLoadingState.type === 'loading' && newState.type === 'loading') {
+    log('[WalletState] Redundant state transition ignored: loading -> loading');
+    return state; // Return state unmodified
+  }
+  
   // Log state transition for debugging
   if (state.walletLoadingState.type !== newState.type) {
     log(

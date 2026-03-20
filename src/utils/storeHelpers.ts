@@ -37,22 +37,21 @@ import { produce } from 'immer'
  * await hrpc.callMethod(...)
  * ```
  */
-export function requireInitialized(): HRPC {
-  const state = getWorkletStore().getState()
-  if (!state.isInitialized || !state.hrpc) {
-    throw new Error('WDK not initialized')
-  }
-  return state.hrpc
-}
+export async function requireInitialized(): Promise<HRPC> {
+  const store = getWorkletStore()
 
-/**
- * Check if worklet is initialized
- *
- * @returns true if worklet is initialized, false otherwise
- */
-export function isInitialized(): boolean {
-  const state = getWorkletStore().getState()
-  return state.isInitialized && state.hrpc !== null
+  // Wait for both promises to ensure full initialization.
+  // The worklet must start before the WDK can be initialized.
+  await store.getState().isWorkletStartedPromise.promise
+  await store.getState().isWorkletInitializedPromise.promise
+
+  const latestState = store.getState()
+  // After promises resolve, check for all required state properties.
+  if (!latestState.isInitialized || !latestState.hrpc || !latestState.wdkConfigs) {
+    throw new Error('WDK not initialized or wdkConfigs not available')
+  }
+
+  return latestState.hrpc
 }
 
 /**

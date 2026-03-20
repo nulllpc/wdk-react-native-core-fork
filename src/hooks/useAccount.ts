@@ -12,55 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useCallback, useMemo, useRef, useEffect } from 'react'
+import { useCallback, useMemo } from 'react'
 import { AccountService } from '../services/accountService'
 import { getWalletStore } from '../store/walletStore'
 import type { IAsset } from '../types'
 import { BalanceFetchResult } from '../types'
 import { convertBalanceToString } from '../utils/balanceUtils'
 import { useAddressLoader } from './useAddressLoader'
-import { getWorkletStore } from '../store/workletStore'
-import { useShallow } from 'zustand/react/shallow'
-
-/**
- * Returns a promise that resolves when the wallet worklet is initialized.
- * Rejects on timeout or if an initialization error occurs in the store.
- * @param timeout - Timeout in milliseconds.
- */
-function whenInitialized(timeout = 10000): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const store = getWorkletStore()
-
-    if (store.getState().isInitialized) {
-      return resolve()
-    }
-
-    const timeoutId = setTimeout(() => {
-      unsubscribe()
-      reject(
-        new Error(
-          '[whenInitialized] Timed out waiting for wallet initialization.',
-        ),
-      )
-    }, timeout)
-
-    const unsubscribe = store.subscribe((state) => {
-      if (state.isInitialized) {
-        clearTimeout(timeoutId)
-        unsubscribe()
-        resolve()
-      } else if (state.error) {
-        clearTimeout(timeoutId)
-        unsubscribe()
-        reject(
-          new Error(
-            `[whenInitialized] Wallet initialization failed: ${state.error}`,
-          ),
-        )
-      }
-    })
-  })
-}
+import { requireInitialized } from '../utils/storeHelpers'
 
 export type UseAccountParams = {
   accountIndex: number
@@ -143,11 +102,6 @@ export function useAccount<T extends object = {}>(
 ): UseAccountReturn<T> {
   const { address, isLoading, error: addressLoaderError } = useAddressLoader(accountParams)
   const activeWalletId = getWalletStore()((state) => state.activeWalletId)
-  const { isInitialized } = getWorkletStore()(
-    useShallow((state) => ({
-      isInitialized: state.isInitialized,
-    })),
-  )
   
   const activeWalletError = useMemo(() => {
     if (!activeWalletId) {
@@ -159,7 +113,7 @@ export function useAccount<T extends object = {}>(
 
   const account = useMemo(
     () =>
-      activeWalletId && address && isInitialized
+      activeWalletId && address
         ? {
             accountIndex: accountParams.accountIndex,
             network: accountParams.network,
@@ -171,52 +125,94 @@ export function useAccount<T extends object = {}>(
       accountParams.network,
       activeWalletId,
       address,
-      isInitialized,
     ],
   )
-  
-  const accountRef = useRef(account)
-  useEffect(() => {
-    accountRef.current = account
-  }, [account])
 
   const getBalance = useCallback(
     async (tokens: IAsset[]): Promise<BalanceFetchResult[]> => {
+      await requireInitialized();
+
       if (!account) {
-        return []
+        return tokens.map(asset => ({
+          success: false,
+          network: accountParams.network,
+          accountIndex: accountParams.accountIndex,
+          assetId: asset.getId(),
+          balance: null,
+          error: 'No active account',
+        }))
       }
 
       if (!tokens || tokens.length === 0) {
         return []
       }
+      
+      const nativeTokenPromises = tokens.filter(asset => asset.isNative()).map(async (asset) => {
+        try {
+          const balanceResult = await AccountService.callAccountMethod<
+            'getBalance'
+          >(account.network, account.accountIndex, 'getBalance')
+          const balance = convertBalanceToString(balanceResult)
 
-      const results = await Promise.all(
-        tokens.map(async (asset) => {
-          try {
-            let balanceResult: string
+          return {
+            success: true,
+            network: account.network,
+            accountIndex: account.accountIndex,
+            assetId: asset.getId(),
+            balance,
+          }
+        } catch (err) {
+          return {
+            success: false,
+            network: account.network,
+            accountIndex: account.accountIndex,
+            assetId: asset.getId(),
+            balance: null,
+            error: err instanceof Error ? err.message : String(err),
+          }
+        }
+      })
+      
+      const nonNativeTokens = tokens.filter(asset => !asset.isNative());
+      const nonNativeResultsPromise = (async () => {
+        if (nonNativeTokens.length === 0) {
+          return [];
+        }
 
-            if (asset.isNative()) {
-              balanceResult = await AccountService.callAccountMethod<
-                'getBalance'
-              >(account.network, account.accountIndex, 'getBalance')
-            } else {
-              const tokenAddress = asset.getContractAddress()
+        try {
+          const nonNativeTokenAddresses = nonNativeTokens.map((asset) => {
+            const address = asset.getContractAddress();
+            if (!address) {
+              throw new Error(`Asset ${asset.getId()} is non-native but has no contract address.`);
+            }
+            return address;
+          });
 
-              if (!tokenAddress) {
-                throw new Error('Token address cannot be null')
-              }
+          const balanceMap = await AccountService.callAccountMethod<
+            'getTokenBalances'
+          >(
+            account.network,
+            account.accountIndex,
+            'getTokenBalances',
+            nonNativeTokenAddresses,
+          );
 
-              balanceResult = await AccountService.callAccountMethod<
-                'getTokenBalance'
-              >(
-                account.network,
-                account.accountIndex,
-                'getTokenBalance',
-                tokenAddress,
-              )
+          return nonNativeTokens.map((asset) => {
+            const address = asset.getContractAddress()!;
+            const balanceResult = balanceMap[address];
+
+            if (balanceResult === undefined) {
+              return {
+                success: false,
+                network: account.network,
+                accountIndex: account.accountIndex,
+                assetId: asset.getId(),
+                balance: null,
+                error: 'Balance not returned from service.',
+              };
             }
 
-            const balance = convertBalanceToString(balanceResult)
+            const balance = convertBalanceToString(balanceResult);
 
             return {
               success: true,
@@ -224,27 +220,34 @@ export function useAccount<T extends object = {}>(
               accountIndex: account.accountIndex,
               assetId: asset.getId(),
               balance,
-            }
-          } catch (err) {
-            return {
-              success: false,
-              network: account.network,
-              accountIndex: account.accountIndex,
-              assetId: asset.getId(),
-              balance: null,
-              error: err instanceof Error ? err.message : String(err),
-            }
-          }
-        }),
-      )
+            };
+          });
+        } catch (err) {
+          return nonNativeTokens.map(asset => ({
+            success: false,
+            network: account.network,
+            accountIndex: account.accountIndex,
+            assetId: asset.getId(),
+            balance: null,
+            error: err instanceof Error ? err.message : String(err),
+          }));
+        }
+      })();
 
-      return results
+      const results = await Promise.all([
+        ...nativeTokenPromises,
+        nonNativeResultsPromise,
+      ]);
+
+      return results.flat();
     },
-    [account],
+    [account, accountParams.network, accountParams.accountIndex],
   )
 
   const send = useCallback(
     async (params: TransactionParams): Promise<TransactionResult> => {
+      await requireInitialized();
+
       if (!account) {
         return {
           success: false,
@@ -253,7 +256,7 @@ export function useAccount<T extends object = {}>(
           error: 'Cannot send transaction: no active account'
         }
       }
-      
+
       const { to, asset, amount } = params
 
       if (asset.isNative()) {
@@ -266,7 +269,7 @@ export function useAccount<T extends object = {}>(
             value: amount,
           },
         )
-        
+
         return {
           success: true,
           ...txResult
@@ -293,7 +296,7 @@ export function useAccount<T extends object = {}>(
             token: tokenAddress,
           },
         )
-        
+
         return {
           success: true,
           ...txResult
@@ -305,6 +308,8 @@ export function useAccount<T extends object = {}>(
 
   const sign = useCallback(
     async (message: string): Promise<UseAccountResponse & { signature: string }> => {
+      await requireInitialized();
+
       if (!account) {
         return {
           success: false,
@@ -330,6 +335,8 @@ export function useAccount<T extends object = {}>(
 
   const verify = useCallback(
     async (message: string, signature: string): Promise<UseAccountResponse & { verified: boolean }> => {
+      await requireInitialized();
+
       if (!account) {
         return {
           success: false,
@@ -337,7 +344,7 @@ export function useAccount<T extends object = {}>(
           error: 'Cannot verify signature: no active account'
         }
       }
-      
+
       const isValid = await AccountService.callAccountMethod<'verify'>(
         account.network,
         account.accountIndex,
@@ -353,12 +360,14 @@ export function useAccount<T extends object = {}>(
     },
     [account],
   )
-  
+
   const estimateFee = useCallback(
     async (
       params: TransactionParams,
     ): Promise<Omit<TransactionResult, 'hash'>> => {
-      if (!address || !activeWalletId || !isInitialized) {
+      await requireInitialized();
+
+      if (!account) {
         return {
           success: false,
           error: 'Cannot estimate fee: account is not active or not initialized.',
@@ -369,8 +378,8 @@ export function useAccount<T extends object = {}>(
       if (params.asset.isNative()) {
         const feeResponse =
           await AccountService.callAccountMethod<'quoteSendTransaction'>(
-            accountParams.network,
-            accountParams.accountIndex,
+            account.network,
+            account.accountIndex,
             'quoteSendTransaction',
             { to: params.to, value: params.amount },
           )
@@ -392,8 +401,8 @@ export function useAccount<T extends object = {}>(
       }
 
       const feeResponse = await AccountService.callAccountMethod<'quoteTransfer'>(
-        accountParams.network,
-        accountParams.accountIndex,
+        account.network,
+        account.accountIndex,
         'quoteTransfer',
         { recipient: params.to, amount: params.amount, token: tokenAddress },
       )
@@ -403,13 +412,7 @@ export function useAccount<T extends object = {}>(
         ...feeResponse,
       }
     },
-    [
-      accountParams.network,
-      accountParams.accountIndex,
-      address,
-      activeWalletId,
-      isInitialized,
-    ],
+    [account],
   )
 
   const extension = useCallback((): T => {
@@ -421,12 +424,9 @@ export function useAccount<T extends object = {}>(
         }
 
         return async (...args: unknown[]) => {
-          // Wait for the wallet to be fully initialized.
-          await whenInitialized()
+          await requireInitialized();
 
-          const currentAccount = accountRef.current
-
-          if (!currentAccount) {
+          if (!account) {
             console.error(
               '[useAccount] Extension call failed: Account is not available even after wallet initialization.',
             )
@@ -435,8 +435,8 @@ export function useAccount<T extends object = {}>(
 
           if (typeof prop === 'string') {
             return await AccountService.callAccountMethod(
-              currentAccount.network,
-              currentAccount.accountIndex,
+              account.network,
+              account.accountIndex,
               prop,
               ...args,
             )
@@ -444,7 +444,7 @@ export function useAccount<T extends object = {}>(
         }
       },
     })
-  }, [])
+  }, [account])
 
   return useMemo(
     () => {

@@ -31,6 +31,7 @@ import {
 import { isValidAddress } from '../utils/typeGuards'
 import { validateAccountIndex, validateNetworkName } from '../utils/validation'
 import { log, logError } from '../utils/logger'
+import { AddressInfoResult } from '../types'
 
 /**
  * Address Service
@@ -75,7 +76,7 @@ export class AddressService {
     }
 
     // Require initialized worklet
-    const hrpc = requireInitialized()
+    const hrpc = await requireInitialized()
 
     const loadingKey = `${network}-${accountIndex}`
 
@@ -150,6 +151,93 @@ export class AddressService {
         accountIndex,
         walletId: targetWalletId,
       })
+    }
+  }
+
+  /**
+   * Get addresses for multiple accounts and networks.
+   * This is the new, robust method for fetching addresses in bulk.
+   */
+  static async getAddresses(
+    accountIndices: number[],
+    networks?: string[],
+  ): Promise<AddressInfoResult[]> {
+    try {
+      await requireInitialized();
+
+      const workletStore = getWorkletStore().getState();
+      const walletStore = getWalletStore().getState();
+      const currentWdkConfigs = workletStore.wdkConfigs;
+      const currentActiveWalletId = walletStore.activeWalletId;
+
+      const configNetworks = currentWdkConfigs
+        ? Object.values(currentWdkConfigs.networks).map((n) => n.blockchain)
+        : undefined;
+      const networksToLoad = networks || configNetworks;
+
+      if (!networksToLoad) {
+        log(
+          'AddressService.getAddresses called before wdkConfigs were ready and no specific networks were provided.',
+        );
+        return [];
+      }
+
+      const jobs = networksToLoad.flatMap((network) =>
+        accountIndices.map((accountIndex) => ({ network, accountIndex })),
+      );
+      
+      if (!currentActiveWalletId) {
+        return jobs.map((job) => ({
+          ...job,
+          success: false,
+          reason: new Error('Wallet not active.'),
+        }));
+      }
+
+      const loadPromises = jobs.map(({ network, accountIndex }) =>
+        this.getAddress(network, accountIndex, currentActiveWalletId),
+      );
+
+      const results = await Promise.allSettled(loadPromises);
+
+      const formattedResults: AddressInfoResult[] = results.map(
+        (result, index) => {
+          const job = jobs[index];
+
+          if (!job) {
+            throw new Error('Invalid result when loading addresses');
+          }
+
+          if (result.status === 'fulfilled') {
+            return {
+              success: true,
+              network: job.network,
+              accountIndex: job.accountIndex,
+              address: result.value,
+            };
+          } else {
+            return {
+              success: false,
+              network: job.network,
+              accountIndex: job.accountIndex,
+              reason:
+                result.reason instanceof Error
+                  ? result.reason
+                  : new Error(String(result.reason)),
+            };
+          }
+        },
+      );
+
+      return formattedResults;
+    } catch (err) {
+      logError('Failed to load addresses:', err);
+      const error = err instanceof Error ? err : new Error('An unknown error occurred during address loading');
+      const networksToLoad = networks || Object.values(getWorkletStore().getState().wdkConfigs?.networks || {}).map(n => n.blockchain);
+      const jobs = (networksToLoad || []).flatMap((network) =>
+        accountIndices.map((accountIndex) => ({ network, accountIndex })),
+      );
+      return jobs.map(job => ({ ...job, success: false, reason: error }));
     }
   }
 
