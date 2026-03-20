@@ -66,6 +66,7 @@ import type {
 } from '../types'
 import { log } from '../utils/logger'
 import { produce } from 'immer'
+import { createResolvablePromise, ResolvablePromise } from '../utils/promise'
 
 /**
  * Maximum number of credentials to cache before evicting least recently used
@@ -128,6 +129,8 @@ export interface WorkletState {
   // Cache TTL configuration (time to live in milliseconds)
   // Default: 5 minutes - credentials expire after this time
   credentialsCacheTTL: number
+  isWorkletStartedPromise: ResolvablePromise<boolean>
+  isWorkletInitializedPromise: ResolvablePromise<boolean>
 }
 
 export type WorkletStore = WorkletState
@@ -149,6 +152,8 @@ const initialState: WorkletState = {
   wdkInitResult: null,
   credentialsCache: {},
   credentialsCacheTTL: 5 * 60 * 1000, // 5 minutes
+  isWorkletStartedPromise: createResolvablePromise<boolean>(),
+  isWorkletInitializedPromise: createResolvablePromise<boolean>()
 }
 
 let workletStoreInstance: WorkletStoreInstance | null = null
@@ -169,7 +174,7 @@ export function createWorkletStore(): WorkletStoreInstance {
       () => ({
         ...initialState,
       }),
-      { name: 'WorkletStore' },
+      { name: 'WorkletStore', enabled: __DEV__ },
     ),
   )
 

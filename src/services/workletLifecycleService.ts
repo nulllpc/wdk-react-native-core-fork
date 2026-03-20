@@ -27,7 +27,6 @@ import { DEFAULT_MNEMONIC_WORD_COUNT } from '../utils/constants'
 import { handleServiceError } from '../utils/errorHandling'
 import { normalizeError } from '../utils/errorUtils'
 import { log, logWarn } from '../utils/logger'
-import { isInitialized as isWorkletInitialized } from '../utils/storeHelpers'
 import type { WdkConfigs, BundleConfig } from '../types'
 import type { WorkletState } from '../store/workletStore'
 import HRPC from '@tetherto/pear-wrk-wdk/hrpc'
@@ -177,7 +176,9 @@ export class WorkletLifecycleService {
         workletStartResult: result,
         error: null,
       })
+      store.getState().isWorkletStartedPromise.resolve(true)
     } catch (error) {
+      store.getState().isWorkletStartedPromise.reject(error)
       this.handleErrorWithStateUpdate(
         error,
         'startWorklet',
@@ -201,24 +202,11 @@ export class WorkletLifecycleService {
    * @param options.autoStart - If true, start worklet if not started (default: false)
    * @throws Error if worklet not started and autoStart=false or networkConfigs not provided
    */
-  static async ensureWorkletStarted(
-    wdkConfigs?: WdkConfigs,
-    options?: { autoStart?: boolean },
-    bundleConfig?: BundleConfig
-  ): Promise<void> {
+  static async ensureWorkletStarted(): Promise<void> {
     const store = getWorkletStore()
-    const state = store.getState()
 
-    if (state.isWorkletStarted) {
-      return // Already started
-    }
-
-    const autoStart = options?.autoStart ?? false
-    if (!autoStart || !wdkConfigs || !bundleConfig) {
-      throw new Error('Worklet must be started before this operation')
-    }
-
-    await this.startWorklet(wdkConfigs, bundleConfig)
+    // Ensure the worklet and WDK are fully initialized.
+    await store.getState().isWorkletStartedPromise.promise
   }
 
   /**
@@ -273,7 +261,9 @@ export class WorkletLifecycleService {
         wdkInitResult,
         error: null,
       })
+      store.getState().isWorkletInitializedPromise.resolve(true)
     } catch (error) {
+      store.getState().isWorkletInitializedPromise.reject(error)
       this.handleErrorWithStateUpdate(
         error,
         'initializeWDK',
@@ -558,13 +548,5 @@ export class WorkletLifecycleService {
   static clearError(): void {
     const store = getWorkletStore()
     store.setState({ error: null })
-  }
-
-  /**
-   * Check if wallet is initialized
-   * Returns true if worklet is started and WDK is initialized
-   */
-  static isInitialized(): boolean {
-    return isWorkletInitialized()
   }
 }

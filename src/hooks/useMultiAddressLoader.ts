@@ -14,7 +14,6 @@
 
 import { useState, useEffect } from 'react';
 import { AccountService } from '../services/accountService';
-import { getWorkletStore } from '../store/workletStore';
 import { getWalletStore } from '../store/walletStore';
 import { logError } from '../utils/logger';
 
@@ -49,14 +48,13 @@ export function useMultiAddressLoader({
   const [addresses, setAddresses] = useState<AddressResult[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const isWdkInitialized = getWorkletStore()((state) => state.isInitialized);
   const activeWalletId = getWalletStore()((state) => state.activeWalletId);
 
   const networksKey = JSON.stringify([...networks].sort());
 
   useEffect(() => {
     const loadAddresses = async () => {
-      if (!enabled || !isWdkInitialized || networks.length === 0 || !activeWalletId) {
+      if (!enabled || networks.length === 0 || !activeWalletId) {
         if (isLoading) setIsLoading(false);
         if (error) setError(null);
         if (addresses) setAddresses(null);
@@ -101,7 +99,7 @@ export function useMultiAddressLoader({
     };
 
     loadAddresses();
-  }, [networksKey, accountIndex, isWdkInitialized, enabled, activeWalletId]);
+  }, [networksKey, accountIndex, enabled, activeWalletId]);
 
   return { addresses, isLoading, error };
 }
