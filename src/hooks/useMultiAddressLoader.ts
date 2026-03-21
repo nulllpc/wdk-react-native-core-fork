@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState, useEffect } from 'react';
-import { AccountService } from '../services/accountService';
+import { useState, useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { AddressService } from '../services/addressService';
 import { getWalletStore } from '../store/walletStore';
 import { logError } from '../utils/logger';
 
@@ -36,6 +37,7 @@ interface UseMultiAddressLoaderResult {
 
 /**
  * A hook to load addresses for multiple networks concurrently.
+ * It reads from the central walletStore and triggers loading via AddressService.
  * The returned addresses array preserves the order of the input networks array.
  * @param params - The networks and account index to load addresses for.
  * @returns An object with the loaded addresses, the overall loading state, and any potential error.
@@ -45,61 +47,92 @@ export function useMultiAddressLoader({
   accountIndex,
   enabled = true,
 }: UseMultiAddressLoaderParams): UseMultiAddressLoaderResult {
-  const [addresses, setAddresses] = useState<AddressResult[] | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const activeWalletId = getWalletStore()((state) => state.activeWalletId);
 
-  const networksKey = JSON.stringify([...networks].sort());
+  const { activeWalletId, activeAddresses, activeLoading } = getWalletStore()(
+    useShallow((state) => {
+      const activeId = state.activeWalletId
+      return {
+        activeWalletId: activeId,
+        activeAddresses: activeId ? state.addresses[activeId] : undefined,
+        activeLoading: activeId ? state.walletLoading[activeId] : undefined,
+      };
+    }),
+  );
+
+  const { addressesFromStore, isLoadingFromStore } = useMemo(() => {
+    const walletAddresses = activeAddresses || {}
+    const walletLoading = activeLoading || {}
+
+    const selectedAddresses: Record<string, string> = {}
+    const selectedLoading: Record<string, boolean> = {}
+
+    for (const network of networks) {
+      selectedAddresses[network] =
+        walletAddresses[network]?.[accountIndex] || ''
+      selectedLoading[network] =
+        walletLoading[`${network}-${accountIndex}`] || false
+    }
+
+    return {
+      addressesFromStore: selectedAddresses,
+      isLoadingFromStore: selectedLoading,
+    };
+  }, [activeAddresses, activeLoading, networks, accountIndex])
 
   useEffect(() => {
-    const loadAddresses = async () => {
-      if (!enabled || networks.length === 0 || !activeWalletId) {
-        if (isLoading) setIsLoading(false);
-        if (error) setError(null);
-        if (addresses) setAddresses(null);
-        return;
-      }
+    const networksToLoad = networks.filter(
+      (network) => !addressesFromStore[network] && !isLoadingFromStore[network],
+    )
 
-      setIsLoading(true);
+    if (!enabled || networksToLoad.length === 0 || !activeWalletId) {
+      return
+    }
+
+    let isCancelled = false;
+
+    const load = async () => {
       setError(null);
-      setAddresses(null);
-
       try {
-        const uniqueNetworks = [...new Set(networks)];
-        const addressPromises = uniqueNetworks.map((network) =>
-          AccountService.callAccountMethod<'getAddress'>(
-            network,
-            accountIndex,
-            'getAddress',
-          ),
-        );
-
-        const loadedAddresses = await Promise.all(addressPromises);
-
-        // Create a map for efficient lookups.
-        const addressMap = new Map<string, string>();
-        uniqueNetworks.forEach((network, index) => {
-          addressMap.set(network, loadedAddresses[index]);
-        });
-
-        const finalAddresses = networks.map((network) => ({
-          network,
-          address: addressMap.get(network)!,
-        }));
-
-        setAddresses(finalAddresses);
+        await AddressService.getAddresses([accountIndex], networksToLoad);
       } catch (e) {
-        const err = e instanceof Error ? e : new Error('Failed to load addresses');
-        logError('useMultiAddressLoader failed:', err);
-        setError(err);
-      } finally {
-        setIsLoading(false);
+        if (!isCancelled) {
+          const err =
+            e instanceof Error ? e : new Error('Failed to load addresses');
+          logError('useMultiAddressLoader failed:', err);
+          setError(err);
+        }
       }
     };
 
-    loadAddresses();
-  }, [networksKey, accountIndex, enabled, activeWalletId]);
+    load()
 
-  return { addresses, isLoading, error };
+    return () => {
+      isCancelled = true
+    };
+  }, [
+    networks,
+    accountIndex,
+    enabled,
+    activeWalletId,
+    addressesFromStore,
+    isLoadingFromStore,
+  ]);
+
+  const addresses = useMemo(() => {
+    const allLoaded = networks.every((network) => addressesFromStore[network])
+    if (!allLoaded) {
+      return null
+    }
+    return networks.map((network) => ({
+      network,
+      address: addressesFromStore[network] as string,
+    }));
+  }, [networks, addressesFromStore])
+
+  const isLoading = useMemo(() => {
+    return networks.some((network) => isLoadingFromStore[network])
+  }, [networks, isLoadingFromStore])
+
+  return { addresses, isLoading, error }
 }

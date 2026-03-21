@@ -34,34 +34,24 @@ export function useAddressLoader({
   network,
   accountIndex,
 }: UseAddressLoaderParams): UseAddressLoaderResult {
-  const walletStore = getWalletStore()
   const [error, setError] = useState<Error | null>(null)
 
-  const { activeWalletId, address, isAddressLoadingInStore } = walletStore(
+  const { activeWalletId, activeAddresses, activeLoading } = getWalletStore()(
     useShallow((state) => {
-      const walletId = state.activeWalletId
-      
-      if (!walletId) {
-        return {
-          activeWalletId: null,
-          address: null,
-          isAddressLoadingInStore: false,
-        }
-      }
-
-      const key = `${network}-${accountIndex}`
-      
+      const activeId = state.activeWalletId
       return {
-        activeWalletId: walletId,
-        address: state.addresses[walletId]?.[network]?.[accountIndex] || null,
-        isAddressLoadingInStore: state.walletLoading[walletId]?.[key] || false,
-      }
+        activeWalletId: activeId,
+        activeAddresses: activeId ? state.addresses[activeId] : undefined,
+        activeLoading: activeId ? state.walletLoading[activeId] : undefined,
+      };
     }),
-  )
+  );
+
+  const address = activeAddresses?.[network]?.[accountIndex] || null
+  const isAddressLoadingInStore =
+    activeLoading?.[`${network}-${accountIndex}`] || false
 
   useEffect(() => {
-    setError(null)
-
     const shouldLoad =
       activeWalletId &&
       !address &&
@@ -74,6 +64,8 @@ export function useAddressLoader({
     let isCancelled = false
 
     const load = async () => {
+      setError(null)
+
       try {
         await AddressService.getAddress(network, accountIndex, activeWalletId)
       } catch (e) {
@@ -100,7 +92,7 @@ export function useAddressLoader({
     isAddressLoadingInStore,
   ])
 
-  const isLoading = isAddressLoadingInStore && !error
+  const isLoading = isAddressLoadingInStore
 
   return useMemo(
     () => ({
