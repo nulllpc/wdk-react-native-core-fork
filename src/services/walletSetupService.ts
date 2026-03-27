@@ -89,6 +89,27 @@ export class WalletSetupService {
     const result = await WorkletLifecycleService.generateEntropyAndEncrypt(DEFAULT_MNEMONIC_WORD_COUNT)
 
     try {
+      await WorkletLifecycleService.initializeWDK({
+        encryptionKey: result.encryptionKey,
+        encryptedSeed: result.encryptedSeedBuffer,
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const isDecryptionError = 
+        errorMessage.toLowerCase().includes('decryption failed') ||
+        errorMessage.toLowerCase().includes('failed to decrypt')
+      
+      if (isDecryptionError) {
+        throw new Error(
+          `Failed to validate encryption compatibility: The encryption key cannot decrypt the encrypted seed. ` +
+          `This indicates corrupted or mismatched wallet data. Error: ${errorMessage}`
+        )
+      }
+      
+      throw error
+    }
+
+    try {
       await secureStorage.setEncryptionKey(result.encryptionKey, walletId, { requireBiometrics })
       await secureStorage.setEncryptedSeed(result.encryptedSeedBuffer, walletId)
       await secureStorage.setEncryptedEntropy(result.encryptedEntropyBuffer, walletId)
@@ -164,6 +185,27 @@ export class WalletSetupService {
     }
 
     const result = await WorkletLifecycleService.getSeedAndEntropyFromMnemonic(mnemonic)
+
+    try {
+      await WorkletLifecycleService.initializeWDK({
+        encryptionKey: result.encryptionKey,
+        encryptedSeed: result.encryptedSeedBuffer,
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const isDecryptionError = 
+        errorMessage.toLowerCase().includes('decryption failed') ||
+        errorMessage.toLowerCase().includes('failed to decrypt')
+      
+      if (isDecryptionError) {
+        throw new Error(
+          `Failed to validate encryption compatibility: The encryption key cannot decrypt the encrypted seed. ` +
+          `This indicates corrupted or mismatched wallet data. Error: ${errorMessage}`
+        )
+      }
+      
+      throw error
+    }
 
     try {
       await secureStorage.setEncryptionKey(result.encryptionKey, walletId, { requireBiometrics })

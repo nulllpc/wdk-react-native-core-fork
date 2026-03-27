@@ -167,19 +167,14 @@ export class WorkletLifecycleService {
     await store.getState().isWorkletStartedPromise.promise
   }
 
-  /**
-   * Initialize WDK with encrypted seed (ONLY encrypted approach)
-   */
   static async initializeWDK(options: {
     encryptionKey: string
     encryptedSeed: string
   }): Promise<void> {
+    await WorkletLifecycleService.ensureWorkletStarted()
+
     const store = getWorkletStore()
     const state = store.getState()
-
-    if (!state.isWorkletStarted) {
-      throw new Error('Worklet must be started before initializing WDK')
-    }
 
     if (state.isInitialized) {
       log('WDK is already initialized')
@@ -203,8 +198,6 @@ export class WorkletLifecycleService {
         config: JSON.stringify(currentState.wdkConfigs),
       })
 
-      // NEVER store seed phrase
-      // Extract status from result
       const wdkInitResult = this.extractWdkInitResult(result)
 
       store.setState({
@@ -235,12 +228,8 @@ export class WorkletLifecycleService {
     encryptedSeedBuffer: string
     encryptedEntropyBuffer: string
   }> {
+    await WorkletLifecycleService.ensureWorkletStarted()
     const store = getWorkletStore()
-    const state = store.getState()
-
-    if (!state.isWorkletStarted) {
-      throw new Error('Worklet must be started before generating entropy')
-    }
 
     try {
       // Get HRPC directly from store instead of using requireExtendedHRPC()
