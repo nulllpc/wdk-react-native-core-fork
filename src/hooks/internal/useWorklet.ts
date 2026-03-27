@@ -1,3 +1,17 @@
+// Copyright 2026 Tether Operations Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { useShallow } from 'zustand/react/shallow'
 import type { Worklet } from 'react-native-bare-kit'
 
@@ -38,8 +52,6 @@ export interface UseWorkletResult {
   worklet: Worklet | null
   workletStartResult: WorkletStartResponse | null
   wdkInitResult: { status?: string | null } | null
-  encryptedSeed: string | null
-  encryptionKey: string | null
   networkConfigs: WdkConfigs | null
   // Actions
   initializeWDK: (options: { encryptionKey: string; encryptedSeed: string }) => Promise<void>
@@ -77,8 +89,6 @@ export function useWorklet(): UseWorkletResult {
     worklet: state.worklet,
     workletStartResult: state.workletStartResult,
     wdkInitResult: state.wdkInitResult,
-    encryptedSeed: state.encryptedSeed,
-    encryptionKey: state.encryptionKey,
     networkConfigs: state.wdkConfigs,
   }))
   const workletState = store(selector)
@@ -92,8 +102,6 @@ export function useWorklet(): UseWorkletResult {
     worklet: workletState.worklet,
     workletStartResult: workletState.workletStartResult,
     wdkInitResult: workletState.wdkInitResult,
-    encryptedSeed: workletState.encryptedSeed,
-    encryptionKey: workletState.encryptionKey,
     networkConfigs: workletState.networkConfigs,
     initializeWDK: WorkletLifecycleService.initializeWDK,
     generateEntropyAndEncrypt: WorkletLifecycleService.generateEntropyAndEncrypt,

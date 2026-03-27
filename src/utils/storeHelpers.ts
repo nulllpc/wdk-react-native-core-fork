@@ -1,3 +1,17 @@
+// Copyright 2026 Tether Operations Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * Store helper utilities
  *
@@ -23,22 +37,21 @@ import { produce } from 'immer'
  * await hrpc.callMethod(...)
  * ```
  */
-export function requireInitialized(): HRPC {
-  const state = getWorkletStore().getState()
-  if (!state.isInitialized || !state.hrpc) {
-    throw new Error('WDK not initialized')
-  }
-  return state.hrpc
-}
+export async function requireInitialized(): Promise<HRPC> {
+  const store = getWorkletStore()
 
-/**
- * Check if worklet is initialized
- *
- * @returns true if worklet is initialized, false otherwise
- */
-export function isInitialized(): boolean {
-  const state = getWorkletStore().getState()
-  return state.isInitialized && state.hrpc !== null
+  // Wait for both promises to ensure full initialization.
+  // The worklet must start before the WDK can be initialized.
+  await store.getState().isWorkletStartedPromise.promise
+  await store.getState().isWorkletInitializedPromise.promise
+
+  const latestState = store.getState()
+  // After promises resolve, check for all required state properties.
+  if (!latestState.isInitialized || !latestState.hrpc || !latestState.wdkConfigs) {
+    throw new Error('WDK not initialized or wdkConfigs not available')
+  }
+
+  return latestState.hrpc
 }
 
 /**

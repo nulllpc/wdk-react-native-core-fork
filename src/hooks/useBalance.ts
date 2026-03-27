@@ -1,3 +1,17 @@
+// Copyright 2026 Tether Operations Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * Balance Hooks with TanStack Query
  *
@@ -50,7 +64,6 @@ import {
 import { AccountService } from '../services/accountService'
 import { BalanceService } from '../services/balanceService'
 import { getWalletStore } from '../store/walletStore'
-import { getWorkletStore } from '../store/workletStore'
 import { resolveWalletId } from '../utils/storeHelpers'
 import { convertBalanceToString } from '../utils/balanceUtils'
 import {
@@ -173,18 +186,6 @@ async function fetchBalance(
   const assetId = asset.getId()
   const network = asset.getNetwork()
 
-  const workletStore = getWorkletStore()
-  if (!workletStore.getState().isInitialized) {
-    return {
-      success: false,
-      network,
-      accountIndex,
-      assetId,
-      balance: null,
-      error: 'Wallet not initialized',
-    }
-  }
-
   try {
     let balanceResult: string
 
@@ -293,7 +294,6 @@ export function useBalance(
     error: addressError,
   } = useAddressLoader({ network, accountIndex })
 
-  const isWdkInitialized = getWorkletStore()((state) => state.isInitialized)
   const activeWalletId = getWalletStore()((state) => state.activeWalletId)
 
   let initialBalance: string | null = null
@@ -320,7 +320,6 @@ export function useBalance(
     queryFn: () => fetchBalance(accountIndex, asset),
     enabled: isQueryEnabled(
       options?.enabled,
-      isWdkInitialized,
       !!activeWalletId && !!address,
     ),
     refetchInterval: options?.refetchInterval,
@@ -333,6 +332,146 @@ export function useBalance(
   const error = addressError || query.error
 
   return { ...query, isLoading, error }
+}
+
+type FetchBalancesResult =
+  | { success: true; asset: IAsset; balance: string }
+  | { success: false; asset: IAsset; error: unknown };
+
+async function fetchBalances(
+  accountIndex: number,
+  assets: IAsset[],
+): Promise<BalanceFetchResult[]> {
+  const assetsByNetwork = new Map<string, IAsset[]>();
+  assets.forEach(asset => {
+    const network = asset.getNetwork();
+    if (!assetsByNetwork.has(network)) {
+      assetsByNetwork.set(network, []);
+    }
+    assetsByNetwork.get(network)!.push(asset);
+  });
+
+  const allNetworkPromises = Array.from(assetsByNetwork.entries()).map(
+    async ([network, networkAssets]) => {
+      const nativeAssets = networkAssets.filter(asset => asset.isNative());
+      const nonNativeAssets = networkAssets.filter(asset => !asset.isNative());
+
+      const nativePromises: Promise<FetchBalancesResult>[] = nativeAssets.map(asset =>
+        (async () => {
+          try {
+            const balanceResult = await AccountService.callAccountMethod(
+              network,
+              accountIndex,
+              'getBalance',
+            );
+            const balance = convertBalanceToString(balanceResult);
+            return { success: true, asset, balance } as FetchBalancesResult;
+          } catch (error) {
+            return { success: false, asset, error } as FetchBalancesResult;
+          }
+        })(),
+      );
+
+      const nonNativePromise: Promise<FetchBalancesResult[]> = (async () => {
+        if (nonNativeAssets.length === 0) {
+          return [];
+        }
+
+        try {
+          const tokenAddresses = nonNativeAssets.map(asset => {
+            const address = asset.getContractAddress();
+            if (!address) {
+              throw new Error(`Token ${asset.getId()} has no address`);
+            }
+            return address;
+          });
+          const balanceMap = await AccountService.callAccountMethod(
+            network,
+            accountIndex,
+            'getTokenBalances',
+            tokenAddresses,
+          );
+
+          return nonNativeAssets.map(asset => {
+            const address = asset.getContractAddress()!;
+            const balance = (balanceMap as Record<string, string>)[address];
+            if (balance === undefined) {
+              return {
+                success: false,
+                asset,
+                error: new Error('Balance not in map'),
+              };
+            }
+            return {
+              success: true,
+              asset,
+              balance: convertBalanceToString(balance),
+            };
+          });
+        } catch (error) {
+          return nonNativeAssets.map(asset => ({ success: false, asset, error }));
+        }
+      })();
+
+      const [nativeResults, nonNativeResults] = await Promise.all([
+        Promise.all(nativePromises),
+        nonNativePromise,
+      ]);
+
+      const networkResults: FetchBalancesResult[] = [...nativeResults, ...nonNativeResults];
+      
+      let hasSuccessfulUpdate = false;
+      for (const result of networkResults) {
+        if (!result.success) {
+          continue;
+        }
+        hasSuccessfulUpdate = true;
+        BalanceService.updateBalance(
+          accountIndex,
+          network,
+          result.asset.getId(),
+          result.balance,
+        );
+      }
+
+      if (hasSuccessfulUpdate) {
+        BalanceService.updateLastBalanceUpdate(network, accountIndex);
+      }
+      
+      return networkResults;
+    },
+  );
+
+  const allResults = (await Promise.all(allNetworkPromises)).flat();
+
+  return allResults.map(result => {
+    const { asset } = result;
+    const network = asset.getNetwork();
+    const assetId = asset.getId();
+    if (result.success) {
+      return {
+        success: true,
+        network,
+        accountIndex,
+        assetId,
+        balance: result.balance,
+      };
+    }
+    const errorMessage =
+      result.error instanceof Error ? result.error.message : String(result.error);
+    logError(
+      `Failed to fetch balance for ${network}:${accountIndex}:${assetId}:`,
+      result.error,
+    );
+    return {
+      success: false,
+      network,
+      accountIndex,
+      assetId,
+      balance: null,
+      error: errorMessage,
+    };
+  });
 }
 
 async function fetchBalancesForAssets(
@@ -391,7 +530,6 @@ export function useBalancesForWallet(
     enabled: options?.enabled,
   });
 
-  const isWdkInitialized = getWorkletStore()((state) => state.isInitialized);
   const walletId = getWalletStore()((state) => state.activeWalletId);
 
   const initialData: BalanceFetchResult[] | undefined = (() => {
@@ -419,10 +557,9 @@ export function useBalancesForWallet(
 
   const query = useQuery({
     queryKey: [...balanceQueryKeys.byWallet(walletId || '', accountIndex), 'all'],
-    queryFn: () => fetchBalancesForAssets(accountIndex, assetConfigs),
+    queryFn: () => fetchBalances(accountIndex, assetConfigs),
     enabled: isQueryEnabled(
       options?.enabled,
-      isWdkInitialized,
       !!walletId && !areAddressesLoading && assetConfigs.length > 0,
     ),
     refetchInterval: options?.refetchInterval,

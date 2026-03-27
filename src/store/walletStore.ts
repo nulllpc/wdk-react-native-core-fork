@@ -1,3 +1,17 @@
+// Copyright 2026 Tether Operations Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * Wallet Store - Source of Truth for Wallet Data
  *
@@ -117,7 +131,7 @@ export function createWalletStore(): WalletStoreInstance {
           },
         },
       ),
-      { name: 'WalletStore' },
+      { name: 'WalletStore', enabled: __DEV__ },
     ),
   )
 
@@ -158,7 +172,9 @@ function isValidStateTransition(
     case 'checking':
       return nextType === 'loading' || nextType === 'error'
     case 'loading':
-      return nextType === 'ready' || nextType === 'error'
+      return (
+        nextType === 'ready' || nextType === 'error' || nextType === 'loading'
+      )
     case 'ready':
       return (
         nextType === 'not_loaded' ||
@@ -185,6 +201,11 @@ export function updateWalletLoadingState(
   state: WalletStateV1,
   newState: WalletLoadingStateV1,
 ) {
+  if (state.walletLoadingState.type === 'loading' && newState.type === 'loading') {
+    log('[WalletState] Redundant state transition ignored: loading -> loading');
+    return state; // Return state unmodified
+  }
+  
   // Log state transition for debugging
   if (state.walletLoadingState.type !== newState.type) {
     log(

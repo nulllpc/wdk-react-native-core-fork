@@ -1,3 +1,17 @@
+// Copyright 2026 Tether Operations Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * Worklet Lifecycle Service
  *
@@ -13,48 +27,10 @@ import { DEFAULT_MNEMONIC_WORD_COUNT } from '../utils/constants'
 import { handleServiceError } from '../utils/errorHandling'
 import { normalizeError } from '../utils/errorUtils'
 import { log, logWarn } from '../utils/logger'
-import { isInitialized as isWorkletInitialized } from '../utils/storeHelpers'
 import type { WdkConfigs, BundleConfig } from '../types'
 import type { WorkletState } from '../store/workletStore'
 import HRPC from '@tetherto/pear-wrk-wdk/hrpc'
-
-/**
- * Extended HRPC type that may have a cleanup method
- */
-interface HRPCWithCleanup extends HRPC {
-  cleanup?: () => Promise<void> | void
-}
-
-/**
- * Extended Worklet type that may have cleanup methods
- */
-interface WorkletWithCleanup extends Worklet {
-  cleanup?: () => Promise<void> | void
-  destroy?: () => Promise<void> | void
-  stop?: () => Promise<void> | void
-}
-
-/**
- * Type guard to check if HRPC has cleanup method
- */
-function hasHRPCCleanup(hrpc: HRPC): hrpc is HRPCWithCleanup {
-  return (
-    'cleanup' in hrpc &&
-    typeof (hrpc as Record<string, unknown>).cleanup === 'function'
-  )
-}
-
-/**
- * Type guard to check if Worklet has cleanup methods
- */
-function hasWorkletCleanup(worklet: Worklet): worklet is WorkletWithCleanup {
-  const w = worklet as unknown as Record<string, unknown>
-  return (
-    typeof w.cleanup === 'function' ||
-    typeof w.destroy === 'function' ||
-    typeof w.stop === 'function'
-  )
-}
+import { createResolvablePromise } from '../utils/promise'
 
 /**
  * Worklet Lifecycle Service
@@ -102,12 +78,7 @@ export class WorkletLifecycleService {
       // Continue even if cleanup fails
     }
   }
-  /**
-   * Start the worklet with network configurations and bundle
-   *
-   * @param wdkConfigs - Network configurations
-   * @param bundleConfig - Bundle configuration containing the worklet bundle and HRPC class
-   */
+
   static async startWorklet(
     wdkConfigs: WdkConfigs,
     bundleConfig: BundleConfig
@@ -163,7 +134,9 @@ export class WorkletLifecycleService {
         workletStartResult: result,
         error: null,
       })
+      store.getState().isWorkletStartedPromise.resolve(true)
     } catch (error) {
+      store.getState().isWorkletStartedPromise.reject(error)
       this.handleErrorWithStateUpdate(
         error,
         'startWorklet',
@@ -187,46 +160,24 @@ export class WorkletLifecycleService {
    * @param options.autoStart - If true, start worklet if not started (default: false)
    * @throws Error if worklet not started and autoStart=false or networkConfigs not provided
    */
-  static async ensureWorkletStarted(
-    wdkConfigs?: WdkConfigs,
-    options?: { autoStart?: boolean },
-    bundleConfig?: BundleConfig
-  ): Promise<void> {
+  static async ensureWorkletStarted(): Promise<void> {
     const store = getWorkletStore()
-    const state = store.getState()
 
-    if (state.isWorkletStarted) {
-      return // Already started
-    }
-
-    const autoStart = options?.autoStart ?? false
-    if (!autoStart || !wdkConfigs || !bundleConfig) {
-      throw new Error('Worklet must be started before this operation')
-    }
-
-    await this.startWorklet(wdkConfigs, bundleConfig)
+    // Ensure the worklet and WDK are fully initialized.
+    await store.getState().isWorkletStartedPromise.promise
   }
 
-  /**
-   * Initialize WDK with encrypted seed (ONLY encrypted approach)
-   */
   static async initializeWDK(options: {
     encryptionKey: string
     encryptedSeed: string
   }): Promise<void> {
+    await WorkletLifecycleService.ensureWorkletStarted()
+
     const store = getWorkletStore()
     const state = store.getState()
 
-    if (!state.isWorkletStarted) {
-      throw new Error('Worklet must be started before initializing WDK')
-    }
-
-    if (
-      state.isInitialized &&
-      state.encryptionKey === options.encryptionKey &&
-      state.encryptedSeed === options.encryptedSeed
-    ) {
-      log('WDK already initialized with the same encrypted seed')
+    if (state.isInitialized) {
+      log('WDK is already initialized')
       return
     }
 
@@ -247,19 +198,17 @@ export class WorkletLifecycleService {
         config: JSON.stringify(currentState.wdkConfigs),
       })
 
-      // NEVER store seed phrase
-      // Extract status from result
       const wdkInitResult = this.extractWdkInitResult(result)
 
       store.setState({
         isInitialized: true,
         isLoading: false,
-        encryptedSeed: options.encryptedSeed,
-        encryptionKey: options.encryptionKey,
         wdkInitResult,
         error: null,
       })
+      store.getState().isWorkletInitializedPromise.resolve(true)
     } catch (error) {
+      store.getState().isWorkletInitializedPromise.reject(error)
       this.handleErrorWithStateUpdate(
         error,
         'initializeWDK',
@@ -272,9 +221,6 @@ export class WorkletLifecycleService {
     }
   }
 
-  /**
-   * Generate entropy and encrypt (for creating new wallets)
-   */
   static async generateEntropyAndEncrypt(
     wordCount: 12 | 24 = DEFAULT_MNEMONIC_WORD_COUNT,
   ): Promise<{
@@ -282,12 +228,8 @@ export class WorkletLifecycleService {
     encryptedSeedBuffer: string
     encryptedEntropyBuffer: string
   }> {
+    await WorkletLifecycleService.ensureWorkletStarted()
     const store = getWorkletStore()
-    const state = store.getState()
-
-    if (!state.isWorkletStarted) {
-      throw new Error('Worklet must be started before generating entropy')
-    }
 
     try {
       // Get HRPC directly from store instead of using requireExtendedHRPC()
@@ -316,9 +258,6 @@ export class WorkletLifecycleService {
     }
   }
 
-  /**
-   * Get mnemonic from encrypted entropy (for display purposes only - never stored)
-   */
   static async getMnemonicFromEntropy(
     encryptedEntropy: string,
     encryptionKey: string,
@@ -358,9 +297,6 @@ export class WorkletLifecycleService {
     }
   }
 
-  /**
-   * Get seed and entropy from mnemonic phrase (for importing existing wallets)
-   */
   static async getSeedAndEntropyFromMnemonic(mnemonic: string): Promise<{
     encryptionKey: string
     encryptedSeedBuffer: string
@@ -404,12 +340,6 @@ export class WorkletLifecycleService {
 
   /**
    * Initialize both worklet and WDK in one call (convenience method) - ONLY encrypted
-   *
-   * @param options - Initialization options
-   * @param options.encryptionKey - Encryption key for the seed
-   * @param options.encryptedSeed - Encrypted seed buffer
-   * @param options.networkConfigs - Network configurations
-   * @param options.bundleConfig - Bundle configuration
    */
   static async initializeWorklet(
     options: {
@@ -419,7 +349,6 @@ export class WorkletLifecycleService {
       bundleConfig: BundleConfig
     }
   ): Promise<void> {
-    // Convenience method that does both steps - ONLY encrypted approach
     await this.startWorklet(options.networkConfigs, options.bundleConfig)
     await this.initializeWDK({
       encryptionKey: options.encryptionKey,
@@ -498,8 +427,6 @@ export class WorkletLifecycleService {
       isInitialized: false,
       isLoading: false,
       error: null,
-      encryptedSeed: null,
-      encryptionKey: null,
       wdkConfigs: null,
       workletStartResult: null,
       wdkInitResult: null,
@@ -526,11 +453,11 @@ export class WorkletLifecycleService {
     // Clear only sensitive data - addresses, seed, and WDK instance
     // Do NOT terminate worklet, hrpc, or ipc - keep them running
     workletStore.setState({
-      encryptedSeed: null,
-      encryptionKey: null,
       isInitialized: false,
       wdkInitResult: null,
     })
+
+    workletStore.setState({ isWorkletInitializedPromise: createResolvablePromise<boolean>() })
 
     // Clear addresses from wallet store
     walletStore.setState({
@@ -544,13 +471,5 @@ export class WorkletLifecycleService {
   static clearError(): void {
     const store = getWorkletStore()
     store.setState({ error: null })
-  }
-
-  /**
-   * Check if wallet is initialized
-   * Returns true if worklet is started and WDK is initialized
-   */
-  static isInitialized(): boolean {
-    return isWorkletInitialized()
   }
 }

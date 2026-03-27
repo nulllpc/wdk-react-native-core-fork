@@ -1,10 +1,23 @@
+// Copyright 2026 Tether Operations Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * Tests for store helper utilities
  */
 
 import {
   requireInitialized,
-  isInitialized,
   updateBalanceInState,
   updateAddressInState,
 } from '../../utils/storeHelpers'
@@ -63,30 +76,6 @@ describe('storeHelpers', () => {
       }))
 
       expect(() => requireInitialized()).toThrow('WDK not initialized')
-    })
-  })
-
-  describe('isInitialized', () => {
-    it('should return true when initialized', () => {
-      expect(isInitialized()).toBe(true)
-    })
-
-    it('should return false when not initialized', () => {
-      mockWorkletStore.getState = jest.fn(() => ({
-        isInitialized: false,
-        hrpc: null,
-      }))
-
-      expect(isInitialized()).toBe(false)
-    })
-
-    it('should return false when HRPC is null', () => {
-      mockWorkletStore.getState = jest.fn(() => ({
-        isInitialized: true,
-        hrpc: null,
-      }))
-
-      expect(isInitialized()).toBe(false)
     })
   })
 
