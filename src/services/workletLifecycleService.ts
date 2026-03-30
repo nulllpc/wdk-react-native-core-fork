@@ -213,7 +213,7 @@ export class WorkletLifecycleService {
   /**
    * Initialize WDK with encrypted seed (ONLY encrypted approach)
    */
-  static async initializeWDK(options: {
+  static async initializeWDK(options?: {
     encryptionKey: string
     encryptedSeed: string
   }): Promise<void> {
@@ -236,8 +236,8 @@ export class WorkletLifecycleService {
         )
       }
       const result = await currentState.hrpc.initializeWDK({
-        encryptionKey: options.encryptionKey,
-        encryptedSeed: options.encryptedSeed,
+        encryptionKey: options?.encryptionKey,
+        encryptedSeed: options?.encryptedSeed,
         config: JSON.stringify(currentState.wdkConfigs),
       })
 
@@ -248,8 +248,8 @@ export class WorkletLifecycleService {
       store.setState({
         isInitialized: true,
         isLoading: false,
-        encryptedSeed: options.encryptedSeed,
-        encryptionKey: options.encryptionKey,
+        encryptedSeed: options?.encryptedSeed,
+        encryptionKey: options?.encryptionKey,
         wdkInitResult,
         error: null,
       })
