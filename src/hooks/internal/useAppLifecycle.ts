@@ -18,7 +18,7 @@ import { AppState, type AppStateStatus } from 'react-native'
 import { WorkletLifecycleService } from '../../services/workletLifecycleService'
 import { getWalletStore } from '../../store/walletStore'
 import { updateWalletLoadingState } from '../../store/walletStore'
-import { clearAllSensitiveData, getWorkletStore } from '../../store/workletStore'
+import { getWorkletStore } from '../../store/workletStore'
 import { log, logError } from '../../utils/logger'
 
 /** Debounce foreground transitions (e.g. Android inactive flakiness). */
@@ -31,16 +31,6 @@ export interface UseAppLifecycleProps {
 export function useAppLifecycle({
   clearSensitiveDataOnBackground,
 }: UseAppLifecycleProps): void {
-  useEffect(() => {
-    if (!clearSensitiveDataOnBackground) {
-      return
-    }
-
-    // CRITICAL: Clear cache on mount to handle true app restarts (not hot reloads)
-    log('[useAppLifecycle] Clearing credentials cache on mount (app restart)')
-    clearAllSensitiveData()
-  }, [clearSensitiveDataOnBackground])
-
   useEffect(() => {
     const appStateRef = { current: AppState.currentState }
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -55,12 +45,11 @@ export function useAppLifecycle({
         if (
           !ws.isWorkletStarted ||
           !ws.isInitialized ||
-          ws.isLoading ||
-          !ws.encryptionKey ||
-          !ws.encryptedSeed
+          ws.isLoading
         ) {
           return
         }
+
         log('[useAppLifecycle] Foreground WDK reinit (initializeWDK)')
         void WorkletLifecycleService.initializeWDK().catch((err) => {
           logError('[useAppLifecycle] Foreground WDK reinit failed', err)
@@ -82,7 +71,6 @@ export function useAppLifecycle({
             log(
               '[useAppLifecycle] App going to background - clearing sensitive data and marking for re-auth',
             )
-            clearAllSensitiveData()
 
             const walletStore = getWalletStore()
             const currentState = walletStore.getState()
