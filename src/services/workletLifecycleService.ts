@@ -167,7 +167,10 @@ export class WorkletLifecycleService {
     await store.getState().isWorkletStartedPromise.promise
   }
 
-  static async initializeWDK(options: {
+  /**
+   * Initialize WDK with encrypted seed (ONLY encrypted approach)
+   */
+  static async initializeWDK(options?: {
     encryptionKey: string
     encryptedSeed: string
   }): Promise<void> {
@@ -176,9 +179,8 @@ export class WorkletLifecycleService {
     const store = getWorkletStore()
     const state = store.getState()
 
-    if (state.isInitialized) {
-      log('WDK is already initialized')
-      return
+    if (!state.isWorkletStarted) {
+      throw new Error('Worklet must be started before initializing WDK')
     }
 
     try {
@@ -193,8 +195,8 @@ export class WorkletLifecycleService {
         )
       }
       const result = await currentState.hrpc.initializeWDK({
-        encryptionKey: options.encryptionKey,
-        encryptedSeed: options.encryptedSeed,
+        encryptionKey: options?.encryptionKey,
+        encryptedSeed: options?.encryptedSeed,
         config: JSON.stringify(currentState.wdkConfigs),
       })
 
