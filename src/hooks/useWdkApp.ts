@@ -56,6 +56,7 @@ import { getWorkletStore } from '../store/workletStore'
 import { WorkletLifecycleService } from '../services/workletLifecycleService'
 import { log, logError } from '../utils/logger'
 import { withOperationMutex } from '../utils/operationMutex'
+import { createResolvablePromise } from '../utils/promise'
 
 export interface UseWdkAppResult extends WdkAppContextValue {
   reinitializeWdk: () => Promise<void>
@@ -88,13 +89,22 @@ export function useWdkApp(): UseWdkAppResult {
         })
         return
       }
-  
-      log('[useWdkApp] Manual WDK reinitialize (initializeWDK)')
+
+      const workletStore = getWorkletStore();
+
+      log('[useWdkApp] Manually reinitialize WDK')
       try {
-        await WorkletLifecycleService.initializeWDK()
-        log('[useWdkApp] Manual WDK reinitialization done')
+        workletStore.setState({
+          isInitialized: false,
+          wdkInitResult: null,
+          isWorkletInitializedPromise: createResolvablePromise<boolean>(),
+        });
+
+        await WorkletLifecycleService.initializeWDK();
+        log('[useWdkApp] Manual WDK reinitialization done');
       } catch (e) {
-        logError('[useWdkApp] Manual WDK reinitialization failed', e)
+        logError('[useWdkApp] Manual WDK reinitialization failed', e);
+        workletStore.setState({ isLoading: false }); 
       }
     })
   }, [])
