@@ -17,7 +17,6 @@ import { AppState, type AppStateStatus } from 'react-native'
 
 import { getWalletStore } from '../../store/walletStore'
 import { updateWalletLoadingState } from '../../store/walletStore'
-import { clearAllSensitiveData } from '../../store/workletStore'
 import { log } from '../../utils/logger'
 
 export interface UseAppLifecycleProps {
@@ -35,7 +34,6 @@ export function useAppLifecycle({
 
     // CRITICAL: Clear cache on mount to handle true app restarts (not hot reloads)
     log('[useAppLifecycle] Clearing credentials cache on mount (app restart)')
-    clearAllSensitiveData()
 
     const appStateRef = { current: AppState.currentState }
 
@@ -53,7 +51,6 @@ export function useAppLifecycle({
           log(
             '[useAppLifecycle] App going to background - clearing sensitive data and marking for re-auth',
           )
-          clearAllSensitiveData()
 
           // Reset wallet state to trigger re-authentication on foreground
           const walletStore = getWalletStore()
