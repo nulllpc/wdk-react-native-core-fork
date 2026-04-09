@@ -60,6 +60,7 @@ import { createResolvablePromise } from '../utils/promise'
 
 export interface UseWdkAppResult extends WdkAppContextValue {
   reinitializeWdk: () => Promise<void>
+  resetWallets: (blockchains: string[]) => Promise<void>
 }
 
 /**
@@ -110,9 +111,43 @@ export function useWdkApp(): UseWdkAppResult {
     })
   }, [])
   
+  const resetWallets = useCallback(async (blockchains: string[]) => {
+    return withOperationMutex('reinitializeWdk', async () => {
+      const ws = getWorkletStore().getState()
+      if (
+        !ws.isWorkletStarted ||
+        !ws.isInitialized ||
+        ws.isLoading
+      ) {
+        log('[useWdkApp] Reset wallets skipped due to state:', {
+          isWorkletStarted: ws.isWorkletStarted,
+          isInitialized: ws.isInitialized,
+          isLoading: ws.isLoading,
+        })
+        return
+      }
+
+      const workletStore = getWorkletStore()
+
+      log('[useWdkApp] Resetting wallets for blockchains:', blockchains)
+      try {
+        workletStore.setState({
+          isWorkletInitializedPromise: createResolvablePromise<boolean>(),
+        })
+
+        await WorkletLifecycleService.resetWallets(blockchains)
+        log('[useWdkApp] Wallet reset done')
+      } catch (e) {
+        logError('[useWdkApp] Wallet reset failed', e)
+        workletStore.setState({ isLoading: false })
+      }
+    })
+  }, [])
+
   return {
     ...context,
-    reinitializeWdk
+    reinitializeWdk,
+    resetWallets,
   }
 }
 
