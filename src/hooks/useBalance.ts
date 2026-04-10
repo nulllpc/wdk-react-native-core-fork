@@ -422,15 +422,17 @@ async function fetchBalances(
         return [...nativeResults, ...nonNativeResults];
       };
 
-      const timeout = new Promise<FetchBalancesResult[]>(resolve =>
-        setTimeout(() => {
+      let timeoutId: ReturnType<typeof setTimeout>
+      const timeout = new Promise<FetchBalancesResult[]>(resolve => {
+        timeoutId = setTimeout(() => {
           const error = new Error(`Network ${network} timed out after ${networkTimeoutMs}ms`);
           logWarn(`[fetchBalances] ${error.message}`);
           resolve(networkAssets.map(asset => ({ success: false, asset, error })));
-        }, networkTimeoutMs),
-      );
+        }, networkTimeoutMs);
+      });
 
       const networkResults = await Promise.race([fetchNetwork(), timeout]);
+      clearTimeout(timeoutId!);
 
       let hasSuccessfulUpdate = false;
       for (const result of networkResults) {
