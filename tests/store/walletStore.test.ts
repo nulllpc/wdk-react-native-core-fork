@@ -16,7 +16,7 @@
  * Tests for walletStore
  */
 
-import { createWalletStore, getWalletStore } from '../../store/walletStore'
+import { createWalletStore, getWalletStore } from '../../src/store/walletStore'
 
 describe('walletStore', () => {
   beforeEach(() => {

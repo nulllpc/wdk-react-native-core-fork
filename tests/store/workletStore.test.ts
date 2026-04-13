@@ -20,7 +20,7 @@ import {
   createWorkletStore, 
   getWorkletStore, 
   resetWorkletStore, 
-} from '../../store/workletStore'
+} from '../../src/store/workletStore'
 
 describe('workletStore', () => {
   beforeEach(() => {

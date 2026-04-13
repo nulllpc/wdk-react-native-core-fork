@@ -19,6 +19,6 @@
     "noUnusedParameters": false,
     "sourceMap": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/store"],
   "exclude": ["node_modules", "dist"]
 }
