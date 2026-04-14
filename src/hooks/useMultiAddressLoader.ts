@@ -71,16 +71,15 @@ export function useMultiAddressLoader({
           AccountService.callAccountMethod<'getAddress'>(
             network,
             accountIndex,
-            'getAddress',
+            'getAddress'
           ),
         );
 
         const loadedAddresses = await Promise.all(addressPromises);
 
-        // Create a map for efficient lookups.
         const addressMap = new Map<string, string>();
         uniqueNetworks.forEach((network, index) => {
-          addressMap.set(network, loadedAddresses[index]);
+          addressMap.set(network, loadedAddresses[index] as string);
         });
 
         const finalAddresses = networks.map((network) => ({
