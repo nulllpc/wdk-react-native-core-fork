@@ -82,7 +82,7 @@ export function WdkAppProvider<
   const secureStorageInitialized = useRef(false)
   const secureStorage = useMemo(() => createSecureStorage(), [])
 
-  if (!secureStorageInitialized.current) {
+  if (secureStorageInitialized.current == null) {
     WalletSetupService.setSecureStorage(secureStorage)
     secureStorageInitialized.current = true
   }

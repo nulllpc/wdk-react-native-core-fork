@@ -322,6 +322,7 @@ export function useWalletOrchestrator({
     isWorkletInitialized,
     createWallet,
     unlock,
+    walletStore
   ])
 
   const retry = useCallback(() => {
