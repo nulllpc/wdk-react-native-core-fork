@@ -19,18 +19,18 @@
  */
 
 import { createMMKV } from 'react-native-mmkv'
-import { getMMKVKey } from '../../utils/mmkvKeyManager'
+import { getMMKVKey } from '../../src/utils/mmkvKeyManager'
 
 // Mock dependencies
 jest.mock('react-native-mmkv', () => ({
   createMMKV: jest.fn(),
 }))
 
-jest.mock('../../utils/mmkvKeyManager', () => ({
+jest.mock('../../src/utils/mmkvKeyManager', () => ({
   getMMKVKey: jest.fn(),
 }))
 
-jest.mock('../../utils/logger', () => ({
+jest.mock('../../src/utils/logger', () => ({
   logWarn: jest.fn(),
 }))
 
@@ -51,7 +51,7 @@ describe('mmkvStorage', () => {
 
   describe('createMMKVStorage', () => {
     it('should create MMKV storage instance', async () => {
-      const { createMMKVStorage } = await import('../../storage/mmkvStorage')
+      const { createMMKVStorage } = await import('../../src/storage/mmkvStorage')
 
       const storage = await createMMKVStorage('test-identifier')
 
@@ -64,7 +64,7 @@ describe('mmkvStorage', () => {
     })
 
     it('should use default identifier if not provided', async () => {
-      const { createMMKVStorage } = await import('../../storage/mmkvStorage')
+      const { createMMKVStorage } = await import('../../src/storage/mmkvStorage')
 
       await createMMKVStorage()
 
@@ -72,7 +72,7 @@ describe('mmkvStorage', () => {
     })
 
     it('should cache storage instances', async () => {
-      const { createMMKVStorage } = await import('../../storage/mmkvStorage')
+      const { createMMKVStorage } = await import('../../src/storage/mmkvStorage')
 
       // Clear any previous calls
       jest.clearAllMocks()
@@ -90,7 +90,7 @@ describe('mmkvStorage', () => {
     })
 
     it('should create separate instances for different identifiers', async () => {
-      const { createMMKVStorage } = await import('../../storage/mmkvStorage')
+      const { createMMKVStorage } = await import('../../src/storage/mmkvStorage')
 
       const storage1 = await createMMKVStorage('identifier-1')
       const storage2 = await createMMKVStorage('identifier-2')
@@ -105,7 +105,7 @@ describe('mmkvStorage', () => {
   describe('createMMKVStorageAdapter', () => {
     it('should create storage adapter', async () => {
       const { createMMKVStorageAdapter } = await import(
-        '../../storage/mmkvStorage'
+        '../../src/storage/mmkvStorage'
       )
 
       const adapter = createMMKVStorageAdapter('test-identifier')
@@ -118,7 +118,7 @@ describe('mmkvStorage', () => {
 
     it('should use default identifier if not provided', async () => {
       const { createMMKVStorageAdapter } = await import(
-        '../../storage/mmkvStorage'
+        '../../src/storage/mmkvStorage'
       )
 
       const adapter = createMMKVStorageAdapter()
@@ -128,7 +128,7 @@ describe('mmkvStorage', () => {
 
     it('should cache adapters', async () => {
       const { createMMKVStorageAdapter } = await import(
-        '../../storage/mmkvStorage'
+        '../../src/storage/mmkvStorage'
       )
 
       const adapter1 = createMMKVStorageAdapter('test-identifier')
@@ -140,7 +140,7 @@ describe('mmkvStorage', () => {
     describe('getItem', () => {
       it('should return value when storage is ready', async () => {
         const { createMMKVStorageAdapter } = await import(
-          '../../storage/mmkvStorage'
+          '../../src/storage/mmkvStorage'
         )
 
         mockMMKVInstance.getString.mockReturnValue('test-value')
@@ -164,7 +164,7 @@ describe('mmkvStorage', () => {
 
       it('should return null during initialization', async () => {
         const { createMMKVStorageAdapter } = await import(
-          '../../storage/mmkvStorage'
+          '../../src/storage/mmkvStorage'
         )
 
         // Delay key resolution to simulate async initialization
@@ -185,7 +185,7 @@ describe('mmkvStorage', () => {
 
       it('should return null on error', async () => {
         const { createMMKVStorageAdapter } = await import(
-          '../../storage/mmkvStorage'
+          '../../src/storage/mmkvStorage'
         )
 
         mockMMKVInstance.getString.mockImplementation(() => {
@@ -206,7 +206,7 @@ describe('mmkvStorage', () => {
     describe('setItem', () => {
       it('should set value when storage is ready', async () => {
         const { createMMKVStorageAdapter } = await import(
-          '../../storage/mmkvStorage'
+          '../../src/storage/mmkvStorage'
         )
 
         const adapter = createMMKVStorageAdapter('test-identifier-set')
@@ -228,7 +228,7 @@ describe('mmkvStorage', () => {
 
       it('should queue operations during initialization', async () => {
         const { createMMKVStorageAdapter } = await import(
-          '../../storage/mmkvStorage'
+          '../../src/storage/mmkvStorage'
         )
 
         // Delay key resolution to simulate async initialization
@@ -263,7 +263,7 @@ describe('mmkvStorage', () => {
     describe('removeItem', () => {
       it('should remove value when storage is ready', async () => {
         const { createMMKVStorageAdapter } = await import(
-          '../../storage/mmkvStorage'
+          '../../src/storage/mmkvStorage'
         )
 
         const adapter = createMMKVStorageAdapter('test-identifier-remove')
@@ -287,7 +287,7 @@ describe('mmkvStorage', () => {
 
       it('should queue operations during initialization', async () => {
         const { createMMKVStorageAdapter } = await import(
-          '../../storage/mmkvStorage'
+          '../../src/storage/mmkvStorage'
         )
 
         // Delay key resolution to simulate async initialization
@@ -319,7 +319,7 @@ describe('mmkvStorage', () => {
     describe('error handling', () => {
       it('should handle initialization errors', async () => {
         const { createMMKVStorageAdapter } = await import(
-          '../../storage/mmkvStorage'
+          '../../src/storage/mmkvStorage'
         )
 
         const error = new Error('Initialization failed')

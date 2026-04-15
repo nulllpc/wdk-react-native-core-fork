@@ -19,7 +19,7 @@
  */
 
 import { WalletSetupService } from '../../services/walletSetupService'
-import { mockSecureStorage } from '../../__mocks__/secureStorage'
+import { mockSecureStorage } from '../../../tests/__mocks__/secureStorage'
 import { WorkletLifecycleService } from '../../services/workletLifecycleService'
 import { getWorkletStore } from '../../store/workletStore'
 import type { WdkConfigs } from '../../types'

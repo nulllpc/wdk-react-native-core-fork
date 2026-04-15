@@ -20,7 +20,7 @@
 
 import { validateWdkConfigs, validateBalanceRefreshInterval } from '../../utils/validation'
 import type { WdkConfigs } from '../../types'
-import { mockSecureStorage } from '../../__mocks__/secureStorage'
+import { mockSecureStorage } from '../../../tests/__mocks__/secureStorage'
 
 describe('WdkAppProvider validation', () => {
   const mockNetworkConfigs: WdkConfigs = {

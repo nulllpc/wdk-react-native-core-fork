@@ -55,7 +55,7 @@ afterAll(() => {
 beforeEach(() => {
   jest.clearAllMocks()
   // Clear mock secure storage between tests
-  const { mockSecureStorage } = require('../__mocks__/secureStorage')
+  const { mockSecureStorage } = require('./__mocks__/secureStorage')
   if (typeof mockSecureStorage._clearStorage === 'function') {
     mockSecureStorage._clearStorage()
   }

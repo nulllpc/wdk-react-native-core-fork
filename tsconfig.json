@@ -19,6 +19,6 @@
     "noUnusedParameters": false,
     "sourceMap": true
   },
-  "include": ["src/**/*", "tests/store"],
+  "include": ["src/**/*", "tests/store", "tests/storage", "tests/setup.ts", "tests/__mocks__"],
   "exclude": ["node_modules", "dist"]
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DEFAULT_WALLET_IDENTIFIER } from '../utils/constants';
+import { DEFAULT_WALLET_IDENTIFIER } from '../../src/utils/constants';
 
 /**
  * Mock SecureStorage for testing
