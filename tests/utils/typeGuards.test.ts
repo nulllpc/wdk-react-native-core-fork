@@ -28,8 +28,8 @@ import {
   isValidAccountIndex,
   isValidNetworkName,
   isValidBalanceString,
-} from '../../utils/typeGuards'
-import type { WdkConfigs, WdkNetworkConfig } from '../../types'
+} from '../../src/utils/typeGuards'
+import type { WdkConfigs, WdkNetworkConfig } from '../../src/types'
 
 describe('typeGuards', () => {
   describe('isNetworkConfig', () => {

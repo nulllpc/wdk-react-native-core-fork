@@ -18,12 +18,11 @@
  * Tests concurrent operations, state synchronization, and mutex behavior
  */
 
-import { WalletSwitchingService } from '../../services/walletSwitchingService'
-import { getWalletStore } from '../../store/walletStore'
-import { acquireOperationMutex, withOperationMutex, isOperationInProgress } from '../../utils/operationMutex'
+import { WalletSwitchingService } from '../../src/services/walletSwitchingService'
+import { getWalletStore } from '../../src/store/walletStore'
+import { acquireOperationMutex, withOperationMutex, isOperationInProgress } from '../../src/utils/operationMutex'
 
-// Mock dependencies
-jest.mock('../../services/walletSetupService', () => ({
+jest.mock('../../src/services/walletSetupService', () => ({
   WalletSetupService: {
     hasWallet: jest.fn(),
     loadExistingWallet: jest.fn(),
@@ -31,22 +30,22 @@ jest.mock('../../services/walletSetupService', () => ({
   },
 }))
 
-jest.mock('../../services/workletLifecycleService', () => ({
+jest.mock('../../src/services/workletLifecycleService', () => ({
   WorkletLifecycleService: {
     ensureWorkletStarted: jest.fn(),
     initializeWDK: jest.fn(),
   },
 }))
 
-jest.mock('../../store/walletStore', () => {
-  const actual = jest.requireActual('../../store/walletStore')
+jest.mock('../../src/store/walletStore', () => {
+  const actual = jest.requireActual('../../src/store/walletStore')
   return {
     ...actual,
     getWalletStore: jest.fn(),
   }
 })
 
-jest.mock('../../utils/logger', () => ({
+jest.mock('../../src/utils/logger', () => ({
   log: jest.fn(),
   logError: jest.fn(),
   logWarn: jest.fn(),
@@ -160,12 +159,37 @@ describe('Race Conditions', () => {
       expect(operation2Resolved).toBe(false)
       expect(operation2).not.toHaveBeenCalled()
     })
+
+    it('should handle withOperationMutex timeout correctly', async () => {
+      const operation = jest.fn().mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200)) // Longer than timeout
+        return 'result'
+      })
+
+      const timeout = 50 // ms
+
+      await expect(withOperationMutex('timeout-operation', operation, timeout)).rejects.toThrow(
+        `Operation "timeout-operation" exceeded timeout of ${timeout}ms`,
+      )
+
+      expect(operation).toHaveBeenCalledTimes(1)
+      expect(isOperationInProgress()).toBe(false) // Mutex should be released
+    })
+
+    it('should release mutex if operation throws an error', async () => {
+      const operation = jest.fn().mockRejectedValue(new Error('Operation failed'))
+
+      await expect(withOperationMutex('error-operation', operation)).rejects.toThrow('Operation failed')
+
+      expect(operation).toHaveBeenCalledTimes(1)
+      expect(isOperationInProgress()).toBe(false) // Mutex should be released even on error
+    })
   })
 
   describe('Wallet Switching Race Conditions', () => {
     it('should prevent concurrent wallet switches', async () => {
-      const { WalletSetupService } = require('../../services/walletSetupService')
-      const { WorkletLifecycleService } = require('../../services/workletLifecycleService')
+      const { WalletSetupService } = require('../../src/services/walletSetupService')
+      const { WorkletLifecycleService } = require('../../src/services/workletLifecycleService')
 
       const walletId1 = 'wallet-1'
       const walletId2 = 'wallet-2'
@@ -205,8 +229,8 @@ describe('Race Conditions', () => {
     })
 
     it('should handle rapid sequential wallet switches', async () => {
-      const { WalletSetupService } = require('../../services/walletSetupService')
-      const { WorkletLifecycleService } = require('../../services/workletLifecycleService')
+      const { WalletSetupService } = require('../../src/services/walletSetupService')
+      const { WorkletLifecycleService } = require('../../src/services/workletLifecycleService')
 
       const walletId1 = 'wallet-1'
       const walletId2 = 'wallet-2'

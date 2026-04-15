@@ -20,7 +20,7 @@ import {
   workletResponseSchema,
   balanceResponseSchema,
   accountMethodResponseSchema,
-} from '../../utils/schemas'
+} from '../../src/utils/schemas'
 
 describe('schemas', () => {
   describe('workletResponseSchema', () => {

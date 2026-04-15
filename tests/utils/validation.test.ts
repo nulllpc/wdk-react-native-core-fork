@@ -24,8 +24,8 @@ import {
   validateNetworkName,
   validateTokenAddress,
   validateBalance,
-} from '../../utils/validation'
-import type { WdkConfigs } from '../../types'
+} from '../../src/utils/validation'
+import type { WdkConfigs } from '../../src/types'
 
 describe('validation', () => {
   describe('validateNetworkConfigs', () => {

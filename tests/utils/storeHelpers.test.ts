@@ -12,23 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * Tests for store helper utilities
- */
-
 import {
   requireInitialized,
   updateBalanceInState,
   updateAddressInState,
-} from '../../utils/storeHelpers'
-import { getWorkletStore } from '../../store/workletStore'
+} from '../../src/utils/storeHelpers'
+import { getWorkletStore } from '../../src/store/workletStore'
 
 // Mock stores
-jest.mock('../../store/workletStore', () => ({
+jest.mock('../../src/store/workletStore', () => ({
   getWorkletStore: jest.fn(),
 }))
 
-jest.mock('../../types/hrpc', () => ({
+jest.mock('../../src/types/hrpc', () => ({
   asExtendedHRPC: jest.fn(),
 }))
 
@@ -47,6 +43,9 @@ describe('storeHelpers', () => {
       getState: jest.fn(() => ({
         isInitialized: true,
         hrpc: mockHRPC,
+        isWorkletStartedPromise: { promise: Promise.resolve() },
+        isWorkletInitializedPromise: { promise: Promise.resolve() },
+        wdkConfigs: {}
       })),
     }
 
@@ -54,28 +53,34 @@ describe('storeHelpers', () => {
   })
 
   describe('requireInitialized', () => {
-    it('should return HRPC when initialized', () => {
-      const hrpc = requireInitialized()
+    it('should return HRPC when initialized', async () => {
+      const hrpc = await requireInitialized()
       expect(hrpc).toBe(mockHRPC)
       expect(getWorkletStore).toHaveBeenCalled()
     })
 
-    it('should throw error when not initialized', () => {
+    it('should throw error when not initialized', async () => {
       mockWorkletStore.getState = jest.fn(() => ({
         isInitialized: false,
         hrpc: null,
+        isWorkletStartedPromise: { promise: Promise.resolve() },
+        isWorkletInitializedPromise: { promise: Promise.resolve() },
+        wdkConfigs: {},
       }))
 
-      expect(() => requireInitialized()).toThrow('WDK not initialized')
+      await expect(requireInitialized()).rejects.toThrow('WDK not initialized')
     })
 
-    it('should throw error when HRPC is null', () => {
+    it('should throw error when HRPC is null', async () => {
       mockWorkletStore.getState = jest.fn(() => ({
         isInitialized: true,
         hrpc: null,
+        isWorkletStartedPromise: { promise: Promise.resolve() },
+        isWorkletInitializedPromise: { promise: Promise.resolve() },
+        wdkConfigs: {},
       }))
 
-      expect(() => requireInitialized()).toThrow('WDK not initialized')
+      await expect(requireInitialized()).rejects.toThrow('WDK not initialized')
     })
   })
 
@@ -283,4 +288,3 @@ describe('storeHelpers', () => {
     })
   })
 })
-

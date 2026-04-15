@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * Tests for initializationState utilities
- * 
- * Tests worklet initialization state machine helpers
- */
-
 import {
   InitializationStatus,
   AppStatus,
@@ -34,7 +28,7 @@ import {
   getAppStatusMessage,
   getWorkletStatus,
   getCombinedStatus,
-} from '../../utils/initializationState'
+} from '../../src/utils/initializationState'
 
 describe('initializationState', () => {
   describe('isErrorStatus', () => {

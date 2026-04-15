@@ -12,22 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * Tests for errorHandling utilities
- * 
- * Tests service error handling patterns
- */
-
-import { handleServiceError } from '../../utils/errorHandling'
-import { normalizeError } from '../../utils/errorUtils'
-import { logError } from '../../utils/logger'
+import { handleServiceError } from '../../src/utils/errorHandling'
+import { normalizeError } from '../../src/utils/errorUtils'
+import { logError } from '../../src/utils/logger'
 
 // Mock dependencies
-jest.mock('../../utils/errorUtils', () => ({
+jest.mock('../../src/utils/errorUtils', () => ({
   normalizeError: jest.fn(),
 }))
 
-jest.mock('../../utils/logger', () => ({
+jest.mock('../../src/utils/logger', () => ({
   logError: jest.fn(),
 }))
 

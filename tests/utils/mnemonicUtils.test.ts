@@ -16,7 +16,7 @@
  * Tests for mnemonic utility functions
  */
 
-import { validateMnemonic } from '../../utils/mnemonicUtils'
+import { validateMnemonic } from '../../src/utils/mnemonicUtils'
 
 describe('mnemonicUtils', () => {
   describe('validateMnemonic', () => {

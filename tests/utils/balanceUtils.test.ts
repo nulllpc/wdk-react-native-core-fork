@@ -16,7 +16,7 @@
  * Tests for balance utility functions
  */
 
-import { convertBalanceToString, formatBalance, convertBigIntToString } from '../../utils/balanceUtils'
+import { convertBalanceToString, formatBalance, convertBigIntToString } from '../../src/utils/balanceUtils'
 
 describe('balanceUtils', () => {
   describe('convertBalanceToString', () => {

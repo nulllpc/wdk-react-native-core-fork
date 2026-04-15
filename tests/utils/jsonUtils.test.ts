@@ -16,7 +16,7 @@
  * Tests for JSON utilities
  */
 
-import { validateJSONStructure, safeStringify } from '../../utils/jsonUtils'
+import { validateJSONStructure, safeStringify } from '../../src/utils/jsonUtils'
 
 describe('jsonUtils', () => {
   describe('validateJSONStructure', () => {

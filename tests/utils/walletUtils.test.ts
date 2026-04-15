@@ -19,21 +19,21 @@
 import {
   getWalletAddresses,
   createBaseWalletStore,
-} from '../../utils/walletUtils'
-import { getWorkletStore } from '../../store/workletStore'
-import { getWalletStore } from '../../store/walletStore'
-import { AccountService } from '../../services/accountService'
+} from '../../src/utils/walletUtils'
+import { getWorkletStore } from '../../src/store/workletStore'
+import { getWalletStore } from '../../src/store/walletStore'
+import { AccountService } from '../../src/services/accountService'
 
 // Mock stores and services
-jest.mock('../../store/workletStore', () => ({
+jest.mock('../../src/store/workletStore', () => ({
   getWorkletStore: jest.fn(),
 }))
 
-jest.mock('../../store/walletStore', () => ({
+jest.mock('../../src/store/walletStore', () => ({
   getWalletStore: jest.fn(),
 }))
 
-jest.mock('../../services/accountService', () => ({
+jest.mock('../../src/services/accountService', () => ({
   AccountService: {
     callAccountMethod: jest.fn(),
   },

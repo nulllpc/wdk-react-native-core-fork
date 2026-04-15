@@ -23,7 +23,7 @@ import {
   createContextualError,
   sanitizeErrorMessage,
   SanitizationLevel,
-} from '../../utils/errorUtils'
+} from '../../src/utils/errorUtils'
 
 describe('errorUtils', () => {
   describe('normalizeError', () => {

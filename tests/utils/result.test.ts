@@ -16,7 +16,7 @@
  * Tests for Result type utilities
  */
 
-import { ok, err, toResult, toResultSync } from '../../utils/result'
+import { ok, err, toResult, toResultSync } from '../../src/utils/result'
 
 describe('result', () => {
   describe('ok', () => {

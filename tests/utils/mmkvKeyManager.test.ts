@@ -19,7 +19,7 @@
  */
 
 import * as Crypto from 'expo-crypto'
-import { getMMKVKey, clearKeyCache } from '../../utils/mmkvKeyManager'
+import { getMMKVKey, clearKeyCache } from '../../src/utils/mmkvKeyManager'
 
 // Mock expo-crypto
 jest.mock('expo-crypto', () => ({
