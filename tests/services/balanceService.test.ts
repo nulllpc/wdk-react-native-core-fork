@@ -12,17 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * Tests for BalanceService
- * 
- * Tests balance operations: getting, setting, updating, and managing balance state
- */
-
-import { BalanceService } from '../../services/balanceService'
-import { getWalletStore } from '../../store/walletStore'
+import { BalanceService } from '../../src/services/balanceService'
+import { getWalletStore } from '../../src/store/walletStore'
 
 // Mock stores
-jest.mock('../../store/walletStore', () => ({
+jest.mock('../../src/store/walletStore', () => ({
   getWalletStore: jest.fn(),
 }))
 

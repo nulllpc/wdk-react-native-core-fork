@@ -18,13 +18,13 @@
  * Tests wallet switching operations
  */
 
-import { WalletSwitchingService } from '../../services/walletSwitchingService'
-import { WalletSetupService } from '../../services/walletSetupService'
-import { WorkletLifecycleService } from '../../services/workletLifecycleService'
-import { getWalletStore } from '../../store/walletStore'
+import { WalletSwitchingService } from '../../src/services/walletSwitchingService'
+import { WalletSetupService } from '../../src/services/walletSetupService'
+import { WorkletLifecycleService } from '../../src/services/workletLifecycleService'
+import { getWalletStore } from '../../src/store/walletStore'
 
 // Mock dependencies
-jest.mock('../../services/walletSetupService', () => ({
+jest.mock('../../src/services/walletSetupService', () => ({
   WalletSetupService: {
     hasWallet: jest.fn(),
     loadExistingWallet: jest.fn(),
@@ -32,14 +32,14 @@ jest.mock('../../services/walletSetupService', () => ({
   },
 }))
 
-jest.mock('../../services/workletLifecycleService', () => ({
+jest.mock('../../src/services/workletLifecycleService', () => ({
   WorkletLifecycleService: {
     ensureWorkletStarted: jest.fn(),
     initializeWDK: jest.fn(),
   },
 }))
 
-jest.mock('../../store/walletStore', () => ({
+jest.mock('../../src/store/walletStore', () => ({
   getWalletStore: jest.fn(),
   updateWalletLoadingState: jest.fn((prev: any, state: any) => ({ ...prev, ...state })),
   getWalletIdFromLoadingState: jest.fn((state: any) => {
@@ -50,7 +50,7 @@ jest.mock('../../store/walletStore', () => ({
   }),
 }))
 
-jest.mock('../../utils/logger', () => ({
+jest.mock('../../src/utils/logger', () => ({
   log: jest.fn(),
   logError: jest.fn(),
   logWarn: jest.fn(),

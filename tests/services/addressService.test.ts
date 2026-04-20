@@ -18,16 +18,16 @@
  * Tests address retrieval functionality
  */
 
-import { AddressService } from '../../services/addressService'
-import { getWorkletStore } from '../../store/workletStore'
-import { getWalletStore } from '../../store/walletStore'
+import { AddressService } from '../../src/services/addressService'
+import { getWorkletStore } from '../../src/store/workletStore'
+import { getWalletStore } from '../../src/store/walletStore'
 
 // Mock stores
-jest.mock('../../store/workletStore', () => ({
+jest.mock('../../src/store/workletStore', () => ({
   getWorkletStore: jest.fn(),
 }))
 
-jest.mock('../../store/walletStore', () => ({
+jest.mock('../../src/store/walletStore', () => ({
   getWalletStore: jest.fn(),
 }))
 

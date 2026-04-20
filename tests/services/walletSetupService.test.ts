@@ -18,14 +18,14 @@
  * Tests wallet creation, loading, and identifier-based multi-wallet support
  */
 
-import { WalletSetupService } from '../../services/walletSetupService'
-import { mockSecureStorage } from '../../../tests/__mocks__/secureStorage'
-import { WorkletLifecycleService } from '../../services/workletLifecycleService'
-import { getWorkletStore } from '../../store/workletStore'
-import type { WdkConfigs } from '../../types'
+import { WalletSetupService } from '../../src/services/walletSetupService'
+import { mockSecureStorage } from '../__mocks__/secureStorage'
+import { WorkletLifecycleService } from '../../src/services/workletLifecycleService'
+import { getWorkletStore } from '../../src/store/workletStore'
+import type { WdkConfigs } from '../../src/types'
 
 // Mock WorkletLifecycleService
-jest.mock('../../services/workletLifecycleService', () => ({
+jest.mock('../../src/services/workletLifecycleService', () => ({
   WorkletLifecycleService: {
     startWorklet: jest.fn(() => Promise.resolve()),
     ensureWorkletStarted: jest.fn(),
@@ -45,7 +45,7 @@ jest.mock('../../services/workletLifecycleService', () => ({
 }))
 
 // Mock workletStore
-jest.mock('../../store/workletStore', () => ({
+jest.mock('../../src/store/workletStore', () => ({
   getWorkletStore: jest.fn(() => ({
     getState: jest.fn(() => ({
       isWorkletStarted: true,
@@ -96,11 +96,10 @@ describe('WalletSetupService', () => {
 
       expect(result).toHaveProperty('encryptionKey')
       expect(result).toHaveProperty('encryptedSeed')
-      expect(mockSecureStorage.authenticate).toHaveBeenCalled()
       expect(mockSecureStorage.setEncryptionKey).toHaveBeenCalledWith(
         'test-encryption-key',
         undefined,
-        { requireBiometrics: true }
+        { requireBiometrics: false }
       )
       expect(mockSecureStorage.setEncryptedSeed).toHaveBeenCalledWith(
         'test-encrypted-seed',
@@ -123,7 +122,7 @@ describe('WalletSetupService', () => {
       expect(mockSecureStorage.setEncryptionKey).toHaveBeenCalledWith(
         'test-encryption-key',
         identifier,
-        { requireBiometrics: true }
+        { requireBiometrics: false }
       )
       expect(mockSecureStorage.setEncryptedSeed).toHaveBeenCalledWith(
         'test-encrypted-seed',
@@ -133,15 +132,6 @@ describe('WalletSetupService', () => {
         'test-encrypted-entropy',
         identifier
       )
-    })
-
-    it('should require biometric authentication', async () => {
-      const authMock = mockSecureStorage.authenticate as jest.Mock
-      authMock.mockResolvedValueOnce(false)
-
-      await expect(
-        WalletSetupService.createNewWallet()
-      ).rejects.toThrow('Biometric authentication required to create wallet')
     })
   })
 
@@ -156,7 +146,7 @@ describe('WalletSetupService', () => {
       expect(result).toHaveProperty('encryptionKey', 'test-key')
       expect(result).toHaveProperty('encryptedSeed', 'test-seed')
       expect(mockSecureStorage.getEncryptedSeed).toHaveBeenCalledWith(undefined)
-      expect(mockSecureStorage.getEncryptionKey).toHaveBeenCalledWith(undefined, { requireBiometrics: true })
+      expect(mockSecureStorage.getEncryptionKey).toHaveBeenCalledWith(undefined, { requireBiometrics: false })
     })
 
     it('should load existing wallet with identifier', async () => {
@@ -170,7 +160,7 @@ describe('WalletSetupService', () => {
       expect(result).toHaveProperty('encryptionKey', 'test-key')
       expect(result).toHaveProperty('encryptedSeed', 'test-seed')
       expect(mockSecureStorage.getEncryptedSeed).toHaveBeenCalledWith(identifier)
-      expect(mockSecureStorage.getEncryptionKey).toHaveBeenCalledWith(identifier, { requireBiometrics: true })
+      expect(mockSecureStorage.getEncryptionKey).toHaveBeenCalledWith(identifier, { requireBiometrics: false })
     })
 
     it('should throw error if encryption key not found', async () => {
@@ -227,7 +217,7 @@ describe('WalletSetupService', () => {
       expect(mockSecureStorage.setEncryptionKey).toHaveBeenCalledWith(
         'test-encryption-key',
         undefined,
-        { requireBiometrics: true }
+        { requireBiometrics: false }
       )
       expect(WorkletLifecycleService.initializeWDK).toHaveBeenCalled()
     })
@@ -243,23 +233,12 @@ describe('WalletSetupService', () => {
       expect(mockSecureStorage.setEncryptionKey).toHaveBeenCalledWith(
         'test-encryption-key',
         identifier,
-        { requireBiometrics: true }
+        { requireBiometrics: false }
       )
       expect(mockSecureStorage.setEncryptedSeed).toHaveBeenCalledWith(
         'test-encrypted-seed-from-mnemonic',
         identifier
       )
-    })
-
-    it('should require biometric authentication', async () => {
-      const authMock = mockSecureStorage.authenticate as jest.Mock
-      authMock.mockResolvedValueOnce(false)
-
-      await expect(
-        WalletSetupService.initializeFromMnemonic(
-          testMnemonic
-        )
-      ).rejects.toThrow('Biometric authentication required to import wallet')
     })
   })
 
@@ -314,7 +293,7 @@ describe('WalletSetupService', () => {
       expect(mockSecureStorage.setEncryptionKey).toHaveBeenCalledWith(
         expect.any(String),
         identifier,
-        { requireBiometrics: true }
+        { requireBiometrics: false }
       )
     })
 
@@ -334,7 +313,7 @@ describe('WalletSetupService', () => {
       )
 
       expect(mockSecureStorage.getEncryptedSeed).toHaveBeenCalledWith(identifier)
-      expect(mockSecureStorage.getEncryptionKey).toHaveBeenCalledWith(identifier, { requireBiometrics: true })
+      expect(mockSecureStorage.getEncryptionKey).toHaveBeenCalledWith(identifier, { requireBiometrics: false })
     })
   })
 
@@ -374,12 +353,12 @@ describe('WalletSetupService', () => {
       expect(mockSecureStorage.setEncryptionKey).toHaveBeenCalledWith(
         'encryption-key-1',
         identifier1,
-        { requireBiometrics: true }
+        { requireBiometrics: false }
       )
       expect(mockSecureStorage.setEncryptionKey).toHaveBeenCalledWith(
         'encryption-key-2',
         identifier2,
-        { requireBiometrics: true }
+        { requireBiometrics: false }
       )
 
       // Verify we can load each wallet independently

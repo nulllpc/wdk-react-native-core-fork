@@ -18,10 +18,10 @@
  * Tests worklet initialization with various network configurations
  */
 
-import { WorkletLifecycleService } from '../../services/workletLifecycleService'
-import { getWorkletStore } from '../../store/workletStore'
-import type { WdkConfigs, BundleConfig } from '../../types'
-import { createResolvablePromise } from '../../utils/promise'
+import { WorkletLifecycleService } from '../../src/services/workletLifecycleService'
+import { getWorkletStore } from '../../src/store/workletStore'
+import type { WdkConfigs, BundleConfig } from '../../src/types'
+import { createResolvablePromise } from '../../src/utils/promise'
 import HRPC from '@tetherto/pear-wrk-wdk/hrpc'
 
 // Mock dependencies
@@ -63,7 +63,7 @@ const mockBundleConfig: BundleConfig = {
 let sharedMockStore: any
 
 // Mock workletStore
-jest.mock('../../store/workletStore', () => ({
+jest.mock('../../src/store/workletStore', () => ({
   getWorkletStore: jest.fn(() => {
     if (!sharedMockStore) {
       sharedMockStore = {
@@ -566,6 +566,8 @@ describe('WorkletLifecycleService', () => {
       mockInitializeWDK.mockResolvedValue({ status: 'success' })
 
       const initPromise = createResolvablePromise<boolean>()
+      const startPromise = createResolvablePromise<boolean>()
+      startPromise.resolve(true)
       initPromise.resolve(true)
 
       const wdkReadyState = {
@@ -582,6 +584,7 @@ describe('WorkletLifecycleService', () => {
         workletStartResult: null,
         wdkInitResult: { status: 'success' },
         isWorkletInitializedPromise: initPromise,
+        isWorkletStartedPromise: startPromise,
       }
       ;(mockStore as any).getState = jest.fn(() => wdkReadyState)
 

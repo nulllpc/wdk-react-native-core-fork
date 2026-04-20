@@ -18,11 +18,11 @@
  * Tests account method calls through the worklet
  */
 
-import { AccountService } from '../../services/accountService'
-import { getWorkletStore } from '../../store/workletStore'
+import { AccountService } from '../../src/services/accountService'
+import { getWorkletStore } from '../../src/store/workletStore'
 
 // Mock stores
-jest.mock('../../store/workletStore', () => ({
+jest.mock('../../src/store/workletStore', () => ({
   getWorkletStore: jest.fn(),
 }))
 
@@ -43,6 +43,9 @@ describe('AccountService', () => {
       getState: jest.fn(() => ({
         isInitialized: true,
         hrpc: mockHRPC,
+        isWorkletStartedPromise: { promise: Promise.resolve() },
+        isWorkletInitializedPromise: { promise: Promise.resolve() },
+        wdkConfigs: {}
       })),
     }
 
@@ -305,9 +308,17 @@ describe('AccountService', () => {
     })
 
     it('should throw error if WDK not initialized', async () => {
+      const p1 = Promise.reject(new Error('not started'))
+      const p2 = Promise.reject(new Error('not initialized'))
+      p1.catch(() => {}) // suppress unhandled rejection — service only awaits p1
+      p2.catch(() => {}) // suppress unhandled rejection — never awaited when p1 rejects
+
       mockWorkletStore.getState = jest.fn(() => ({
         isInitialized: false,
         hrpc: null,
+        isWorkletStartedPromise: { promise: p1 },
+        isWorkletInitializedPromise: { promise: p2 },
+        wdkConfigs: {}
       }))
 
       await expect(
