@@ -50,6 +50,9 @@ describe('AddressService', () => {
         isInitialized: true,
         hrpc: mockHRPC,
         isWorkletStarted: true,
+        isWorkletStartedPromise: { promise: Promise.resolve() },
+        isWorkletInitializedPromise: { promise: Promise.resolve() },
+        wdkConfigs: {}
       })),
     }
 

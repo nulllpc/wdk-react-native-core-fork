@@ -60,13 +60,13 @@ const mockBundleConfig: BundleConfig = {
 }
 
 // Create a shared mock store that will be returned by getWorkletStore
-let sharedMockStore: any
+let mockSharedStore: any
 
 // Mock workletStore
 jest.mock('../../src/store/workletStore', () => ({
   getWorkletStore: jest.fn(() => {
-    if (!sharedMockStore) {
-      sharedMockStore = {
+    if (!mockSharedStore) {
+      mockSharedStore = {
         getState: jest.fn(() => ({
           isWorkletStarted: false,
           isInitialized: false,
@@ -78,7 +78,7 @@ jest.mock('../../src/store/workletStore', () => ({
         setState: jest.fn(),
       }
     }
-    return sharedMockStore
+    return mockSharedStore
   }),
 }))
 
@@ -215,8 +215,8 @@ describe('WorkletLifecycleService', () => {
       isWorkletInitializedPromise: createResolvablePromise<boolean>(),
     }
     // Update the shared mock store
-    sharedMockStore.getState = jest.fn(() => defaultState)
-    sharedMockStore.setState = jest.fn()
+    mockSharedStore.getState = jest.fn(() => defaultState)
+    mockSharedStore.setState = jest.fn()
   })
 
   describe('startWorklet', () => {
