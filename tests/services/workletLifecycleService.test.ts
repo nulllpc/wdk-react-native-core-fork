@@ -12,19 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * Tests for WorkletLifecycleService
- * 
- * Tests worklet initialization with various network configurations
- */
-
 import { WorkletLifecycleService } from '../../src/services/workletLifecycleService'
 import { getWorkletStore } from '../../src/store/workletStore'
 import type { WdkConfigs, BundleConfig } from '../../src/types'
 import { createResolvablePromise } from '../../src/utils/promise'
 import HRPC from '@tetherto/pear-wrk-wdk/hrpc'
 
-// Mock dependencies
 const mockWorkletInstance = {
   start: jest.fn(),
   IPC: {
@@ -37,11 +30,9 @@ jest.mock('react-native-bare-kit', () => ({
   Worklet: jest.fn().mockImplementation(() => mockWorkletInstance),
 }))
 
-// Shared mock workletStart function to track calls across all HRPC instances
 const mockWorkletStart = jest.fn(() => Promise.resolve({ status: 'success' }))
 
 const mockInitializeWDK = jest.fn(() => Promise.resolve({ status: 'success' }))
-
 const mockHRPCInstance = {
   workletStart: mockWorkletStart,
   ipc: mockWorkletInstance.IPC,
@@ -54,15 +45,12 @@ jest.mock('@tetherto/pear-wrk-wdk/hrpc', () => {
   })
 })
 
-// Mock bundleConfig that will be passed to startWorklet
 const mockBundleConfig: BundleConfig = {
   bundle: 'mock-bundle'
 }
 
-// Create a shared mock store that will be returned by getWorkletStore
 let mockSharedStore: any
 
-// Mock workletStore
 jest.mock('../../src/store/workletStore', () => ({
   getWorkletStore: jest.fn(() => {
     if (!mockSharedStore) {
@@ -82,12 +70,6 @@ jest.mock('../../src/store/workletStore', () => ({
   }),
 }))
 
-/**
- * Real-world network configuration for testing
- * This matches the configuration used in production
- * Note: Some fields like safeModulesVersion, paymasterToken, and network are extensions
- * beyond the base NetworkConfig type but are valid in practice
- */
 const defaultNetworkConfigs = {
   networks: {
     sepolia: {
@@ -186,16 +168,13 @@ describe('WorkletLifecycleService', () => {
   beforeEach(() => {
     jest.clearAllMocks()
 
-    // Reset mock implementations
     mockWorkletInstance.start.mockClear()
     mockWorkletStart.mockClear()
     mockWorkletStart.mockResolvedValue({ status: 'success' })
 
-    // Reset HRPC constructor mock
     ;(HRPC as jest.Mock).mockClear()
     ;(HRPC as jest.Mock).mockImplementation(() => mockHRPCInstance)
 
-    // Setup mock store - get the shared instance
     mockStore = getWorkletStore() as any
     const defaultState = {
       isWorkletStarted: false,
@@ -214,7 +193,6 @@ describe('WorkletLifecycleService', () => {
       isWorkletStartedPromise: createResolvablePromise<boolean>(),
       isWorkletInitializedPromise: createResolvablePromise<boolean>(),
     }
-    // Update the shared mock store
     mockSharedStore.getState = jest.fn(() => defaultState)
     mockSharedStore.setState = jest.fn()
   })
@@ -223,25 +201,19 @@ describe('WorkletLifecycleService', () => {
     it('should start worklet with default network configuration', async () => {
       await WorkletLifecycleService.startWorklet(defaultNetworkConfigs, mockBundleConfig)
 
-      // Verify worklet was created
       const { Worklet } = require('react-native-bare-kit')
       expect(Worklet).toHaveBeenCalled()
 
-      // Verify worklet.start was called with bundle
       expect(mockWorkletInstance.start).toHaveBeenCalledWith('wdk-worklet.bundle', 'mock-bundle')
 
-      // Verify HRPC was created from bundleConfig
       expect(HRPC).toHaveBeenCalledWith(mockWorkletInstance.IPC)
 
-      // Verify workletStart was called with serialized config
       expect(mockHRPCInstance.workletStart).toHaveBeenCalledWith({
         config: JSON.stringify(defaultNetworkConfigs),
       })
 
-      // Verify store state was updated (check that setState was called at least once)
       expect(mockStore.setState).toHaveBeenCalled()
       
-      // Verify the final state update contains the expected values
       const setStateMock = mockStore.setState as jest.Mock
       const finalStateCall = setStateMock.mock.calls[setStateMock.mock.calls.length - 1]
       if (finalStateCall && typeof finalStateCall[0] === 'function') {
@@ -259,14 +231,12 @@ describe('WorkletLifecycleService', () => {
     it('should serialize network configuration correctly', async () => {
       await WorkletLifecycleService.startWorklet(defaultNetworkConfigs, mockBundleConfig)
 
-      // Verify the config was serialized to JSON
       const calls = mockHRPCInstance.workletStart.mock.calls
       expect(calls.length).toBeGreaterThan(0)
       const workletStartCall = calls[0]
       const configString = (workletStartCall as any)[0].config
       const parsedConfig = JSON.parse(configString).networks
 
-      // Verify all networks are present
       expect(parsedConfig).toHaveProperty('sepolia')
       expect(parsedConfig).toHaveProperty('ethereum')
       expect(parsedConfig).toHaveProperty('polygon')
@@ -274,7 +244,6 @@ describe('WorkletLifecycleService', () => {
       expect(parsedConfig).toHaveProperty('plasma')
       expect(parsedConfig).toHaveProperty('spark')
 
-      // Verify network properties
       expect(parsedConfig.ethereum.blockchain).toBe('ethereum')
       expect(parsedConfig.ethereum.config).toMatchObject({
         chainId: 1,
@@ -293,7 +262,6 @@ describe('WorkletLifecycleService', () => {
         provider: 'https://wallet-ap7ha02ezs.rumble.com/arb',
       })
 
-      // Verify extended properties are preserved
       expect(parsedConfig.ethereum.config).toHaveProperty('safeModulesVersion', '0.3.0')
       expect(parsedConfig.ethereum.config).toHaveProperty('paymasterToken')
       expect(parsedConfig.ethereum.config.paymasterToken).toHaveProperty('address')
@@ -309,7 +277,6 @@ describe('WorkletLifecycleService', () => {
       const configString = (workletStartCall as any)[0].config
       const parsedConfig = JSON.parse(configString).networks
 
-      // Verify each network has required fields
       const networks = ['sepolia', 'ethereum', 'polygon', 'arbitrum', 'plasma', 'spark']
       
       for (const network of networks) {
@@ -331,7 +298,6 @@ describe('WorkletLifecycleService', () => {
       const configString = (workletStartCall as any)[0].config
       const parsedConfig = JSON.parse(configString).networks
 
-      // Verify optional fields are preserved for networks that have them
       const ethereumConfig = parsedConfig.ethereum.config
       expect(ethereumConfig).toHaveProperty('bundlerUrl')
       expect(ethereumConfig).toHaveProperty('paymasterUrl')
@@ -341,18 +307,15 @@ describe('WorkletLifecycleService', () => {
       expect(ethereumConfig).toHaveProperty('safeModulesVersion')
       expect(ethereumConfig).toHaveProperty('paymasterToken')
 
-      // Verify spark has its network field
       expect(parsedConfig.spark.config).toHaveProperty('network', 'MAINNET')
     })
 
     it('should not start worklet if already started', async () => {
-      // Clear previous calls
       mockHRPCInstance.workletStart.mockClear()
       const { Worklet: WorkletConstructor } = require('react-native-bare-kit')
       WorkletConstructor.mockClear()
       ;(mockStore.setState as jest.Mock).mockClear()
       
-      // Set up mock store to return "already started" state
       const alreadyStartedState = {
         isWorkletStarted: true,
         isInitialized: false,
@@ -371,22 +334,17 @@ describe('WorkletLifecycleService', () => {
 
       await WorkletLifecycleService.startWorklet(defaultNetworkConfigs, mockBundleConfig)
 
-      // Should not call workletStart again (early return should happen)
       expect(mockHRPCInstance.workletStart).not.toHaveBeenCalled()
-      // Should not create new worklet
       expect(WorkletConstructor).not.toHaveBeenCalled()
-      // Should not call setState (early return before any state changes)
       expect(mockStore.setState).not.toHaveBeenCalled()
     })
 
     it('should not start worklet if already loading', async () => {
-      // Clear previous calls
       mockHRPCInstance.workletStart.mockClear()
       const { Worklet: WorkletConstructor } = require('react-native-bare-kit')
       WorkletConstructor.mockClear()
       ;(mockStore.setState as jest.Mock).mockClear()
       
-      // Set up mock store to return "already loading" state
       const alreadyLoadingState = {
         isWorkletStarted: false,
         isInitialized: false,
@@ -405,16 +363,12 @@ describe('WorkletLifecycleService', () => {
 
       await WorkletLifecycleService.startWorklet(defaultNetworkConfigs, mockBundleConfig)
 
-      // Should not call workletStart (early return should happen)
       expect(mockHRPCInstance.workletStart).not.toHaveBeenCalled()
-      // Should not create new worklet
       expect(WorkletConstructor).not.toHaveBeenCalled()
-      // Should not call setState (early return before any state changes)
       expect(mockStore.setState).not.toHaveBeenCalled()
     })
 
     it('should handle errors during worklet initialization', async () => {
-      // Make workletStart fail to simulate an error
       mockHRPCInstance.workletStart.mockRejectedValueOnce(new Error('Failed to start worklet'))
 
       void mockStore
@@ -427,15 +381,12 @@ describe('WorkletLifecycleService', () => {
         WorkletLifecycleService.startWorklet(defaultNetworkConfigs, mockBundleConfig),
       ).rejects.toThrow()
 
-      // Verify setState was called (at least for loading state and error state)
       expect(mockStore.setState).toHaveBeenCalled()
       
-      // Verify error state was set in the last call
       const setStateMock = mockStore.setState as jest.Mock
       const allCalls = setStateMock.mock.calls
       expect(allCalls.length).toBeGreaterThan(0)
       
-      // Check if any call sets error state
       let errorStateFound = false
       for (const call of allCalls) {
         if (typeof call[0] === 'function') {
@@ -486,7 +437,6 @@ describe('WorkletLifecycleService', () => {
 
       await WorkletLifecycleService.startWorklet(defaultNetworkConfigs, mockBundleConfig)
 
-      // Verify new worklet was created (old one should be cleaned up)
       const { Worklet } = require('react-native-bare-kit')
       expect(Worklet).toHaveBeenCalled()
     })
@@ -605,4 +555,3 @@ describe('WorkletLifecycleService', () => {
     })
   })
 })
-
