@@ -22,7 +22,6 @@ import { getWalletStore, WalletState, WalletInfo } from '../../src/store/walletS
 import { getWorkletStore, WorkletStore } from '../../src/store/workletStore';
 import { useWdkApp } from '../../src/hooks/useWdkApp';
 import { WdkAppContext, WdkAppContextValue } from '../../src/provider/WdkAppProvider';
-import { WdkConfigs } from '../../src/types';
 
 jest.mock('../../src/services/walletSetupService');
 jest.mock('../../src/services/workletLifecycleService');
@@ -97,8 +96,8 @@ const mockInitialWorkletState: WorkletStore = {
   workletStartResult: null,
   wdkInitResult: null,
   wdkConfigs: null,
-  isWorkletStartedPromise: Promise.resolve(true) as any, // Simplified for mock
-  isWorkletInitializedPromise: Promise.resolve(true) as any, // Simplified for mock
+  isWorkletStartedPromise: Promise.resolve(true) as any,
+  isWorkletInitializedPromise: Promise.resolve(true) as any,
 };
 
 let mockWalletStoreInstance: MockWalletStore;
@@ -173,7 +172,7 @@ describe('useWalletManager', () => {
   describe('State Management and Transitions', () => {
     it('should call WalletSetupService.createWallet', async () => {
         const walletId = 'new-wallet';
-        mockWalletSetupService.hasWallet.mockResolvedValue(false); // Ensure wallet doesn't exist
+        mockWalletSetupService.hasWallet.mockResolvedValue(false);
         
         const { result } = renderHook(() => useWalletManager(), { wrapper: ContextWrapper });
         
@@ -188,7 +187,7 @@ describe('useWalletManager', () => {
 
     it('should not create wallet if it already exists', async () => {
       const walletId = 'existing-wallet';
-      mockWalletSetupService.hasWallet.mockResolvedValue(true); // Wallet exists
+      mockWalletSetupService.hasWallet.mockResolvedValue(true);
 
       const { result } = renderHook(() => useWalletManager(), { wrapper: ContextWrapper });
 
@@ -217,7 +216,6 @@ describe('useWalletManager', () => {
       const walletId1 = 'wallet-1';
       const walletId2 = 'wallet-2';
 
-      // Make initializeWallet hang to keep the mutex held
       let resolveUnlock: (value: void | PromiseLike<void>) => void;
       const unlockPromise = new Promise<void>((resolve) => {
         resolveUnlock = resolve;
@@ -226,18 +224,15 @@ describe('useWalletManager', () => {
 
       const { result } = renderHook(() => useWalletManager(), { wrapper: ContextWrapper });
 
-      // Start first unlock
       let firstUnlockPromise: Promise<void>;
       await act(async () => {
         firstUnlockPromise = result.current.unlock(walletId1);
       });
 
-      // Try second unlock immediately - should throw because mutex is held
       await expect(act(async () => {
         await result.current.unlock(walletId2);
       })).rejects.toThrow(/Another operation is in progress/);
 
-      // Resolve first unlock
       await act(async () => {
         resolveUnlock!();
         await firstUnlockPromise!;
@@ -249,7 +244,6 @@ describe('useWalletManager', () => {
     it('should clear activeWalletId and reset state upon lock', async () => {
       const walletId = 'active-wallet';
       
-      // Set up initial state with an active wallet
       await act(async () => {
         mockWalletStoreInstance.setState({
           activeWalletId: walletId,
@@ -273,7 +267,6 @@ describe('useWalletManager', () => {
 
     it('should delegate unlock to WalletSetupService', async () => {
       const walletId = 'test-wallet-to-unlock';
-      // Mock service to resolve
       mockWalletSetupService.initializeWallet.mockResolvedValue();
       
       const { result } = renderHook(() => useWalletManager(), { wrapper: ContextWrapper });
@@ -291,7 +284,6 @@ describe('useWalletManager', () => {
       const updatedWalletList: WalletInfo[] = [{ identifier: 'other-wallet', exists: true }];
       
       mockWalletSetupService.deleteWallet.mockResolvedValue(undefined);
-      // Mock store to reflect the state before deletion
       mockWalletStoreInstance.setState({
         walletList: [{ identifier: walletIdToDelete, exists: true }, ...updatedWalletList],
         activeWalletId: walletIdToDelete,
@@ -347,7 +339,6 @@ describe('useWalletManager', () => {
         await result.current.createWallet(walletId);
       });
 
-      // Check for loading state transition
       const setStateCalls = setStateSpy.mock.calls;
       let foundLoadingState = false;
       for (const [arg] of setStateCalls) {
@@ -364,7 +355,6 @@ describe('useWalletManager', () => {
       const walletId = 'restored-wallet';
       const mnemonic = 'test mnemonic';
       mockWalletSetupService.hasWallet.mockResolvedValue(false);
-      const setStateSpy = jest.spyOn(mockWalletStoreInstance, 'setState');
 
       const { result } = renderHook(() => useWalletManager(), { wrapper: ContextWrapper });
 
@@ -375,7 +365,6 @@ describe('useWalletManager', () => {
       expect(mockWalletSetupService.initializeFromMnemonic).toHaveBeenCalledWith(mnemonic, walletId);
       expect(result.current.activeWalletId).toBe(walletId);
       
-      // Verify ready state transition
       const state = mockWalletStoreInstance.getState();
       expect(state.walletLoadingState).toEqual({ type: 'ready', identifier: walletId });
     });
