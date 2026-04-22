@@ -75,7 +75,7 @@ import { log, logError, logWarn } from '../utils/logger'
 import { useAddressLoader } from './useAddressLoader';
 import { useMultiAddressLoader } from './useMultiAddressLoader';
 import type { BalanceFetchResult, IAsset } from '../types'
-
+import { useMemo } from 'react'
 
 /**
  * Balance query options
@@ -493,35 +493,6 @@ async function fetchBalances(
   });
 }
 
-async function fetchBalancesForAssets(
-  accountIndex: number,
-  assetConfigs: IAsset[],
-): Promise<BalanceFetchResult[]> {
-  const results = await Promise.allSettled(
-    assetConfigs.map(async (asset) => fetchBalance(accountIndex, asset)),
-  );
-
-  return results.map((result, index) => {
-    if (result.status === 'fulfilled') {
-      return result.value;
-    }
-    const asset = assetConfigs[index];
-    const errorMessage =
-      result.reason instanceof Error
-        ? result.reason.message
-        : String(result.reason);
-
-    return {
-      success: false,
-      network: asset?.getNetwork() || '',
-      accountIndex,
-      assetId: asset?.getId() || '',
-      balance: null,
-      error: errorMessage,
-    };
-  });
-}
-
 export type UseBalancesForWalletResult = Omit<
   UseQueryResult<BalanceFetchResult[], Error>,
   'isLoading' | 'error'
@@ -538,7 +509,10 @@ export function useBalancesForWallet(
   assetConfigs: IAsset[],
   options?: BalanceQueryOptions,
 ): UseBalancesForWalletResult {
-  const uniqueNetworks = [...new Set(assetConfigs.map((asset) => asset.getNetwork()))];
+  const uniqueNetworks = useMemo(
+    () => [...new Set(assetConfigs.map((asset) => asset.getNetwork()))],
+    [assetConfigs],
+  );
 
   const {
     isLoading: areAddressesLoading,
