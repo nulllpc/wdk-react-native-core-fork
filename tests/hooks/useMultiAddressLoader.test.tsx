@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { create, StoreApi } from 'zustand';
 import { useMultiAddressLoader } from '../../src/hooks/useMultiAddressLoader';
 import { AccountService } from '../../src/services/accountService';
@@ -21,7 +21,11 @@ import { logError } from '../../src/utils/logger';
 
 jest.mock('../../src/services/accountService');
 jest.mock('../../src/store/walletStore');
-jest.mock('../../src/utils/logger');
+jest.mock('../../src/utils/logger', () => ({
+    log: jest.fn(),
+    logError: jest.fn(),
+    logWarn: jest.fn(),
+}));
 
 const mockCallAccountMethod = AccountService.callAccountMethod as jest.Mock;
 const mockGetWalletStore = getWalletStore as jest.Mock;
@@ -133,7 +137,9 @@ describe('useMultiAddressLoader', () => {
         expect(mockCallAccountMethod).toHaveBeenCalledWith('net2', 1, 'getAddress');
         
         mockCallAccountMethod.mockResolvedValue('address-4');
-        mockWalletStore.setState({ activeWalletId: 'wallet2' });
+        act(() => {
+          mockWalletStore.setState({ activeWalletId: 'wallet2' });
+        });
         await waitFor(() => expect(mockCallAccountMethod).toHaveBeenCalledTimes(4));
     });
 

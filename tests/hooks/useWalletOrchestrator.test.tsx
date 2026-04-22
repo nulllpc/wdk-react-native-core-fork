@@ -28,6 +28,7 @@ jest.mock('../../src/services/walletSetupService');
 jest.mock('../../src/utils/logger', () => ({
     log: jest.fn(),
     logError: jest.fn(),
+    logWarn: jest.fn(),
 }));
 
 const mockCreateWallet = jest.fn();

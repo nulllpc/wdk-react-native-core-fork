@@ -52,6 +52,7 @@ jest.mock('../../src/store/walletStore', () => ({
 
 jest.mock('../../src/utils/logger', () => ({
     log: jest.fn(),
+    logWarn: jest.fn()
 }));
 
 describe('useAppLifecycle', () => {
